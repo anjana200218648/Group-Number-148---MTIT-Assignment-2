@@ -1,0 +1,16 @@
+# Env
+.env
+
+# Firebase keys
+serviceAccountKey.json
+order-management-service.json
+
+# Python
+__pycache__/
+*.pyc
+
+# venv
+venv/
+
+# VS Code
+.vscode/

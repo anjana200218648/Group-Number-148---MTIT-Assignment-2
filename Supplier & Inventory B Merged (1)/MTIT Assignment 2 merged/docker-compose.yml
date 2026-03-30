@@ -1,0 +1,102 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────
+#  Hotel / Restaurant Supply Chain – Full Stack
+#  Services:
+#    api-gateway  → port 8080  (entry point for all traffic)
+#    supplier     → port 8081
+#    inventory    → port 8082
+#    order        → port 8083
+# ─────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── API Gateway ──────────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - SUPPLIER_SERVICE_URL=http://supplier-service:8081
+      - INVENTORY_SERVICE_URL=http://inventory-service:8082
+      - ORDER_SERVICE_URL=http://order-service:8083
+    depends_on:
+      - supplier-service
+      - inventory-service
+      - order-service
+    networks:
+      - supply-chain-net
+    restart: unless-stopped
+
+  # ── Supplier Service ─────────────────────────────────────────────
+  supplier-service:
+    build:
+      context: ./supplier-service
+      dockerfile: Dockerfile
+    container_name: supplier-service
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+      # Path inside the container – the JSON is copied in by Docker
+      - FIREBASE_CREDENTIALS_PATH=/app/firebase-credentials.json
+      - SECRET_KEY=${SUPPLIER_SECRET_KEY:-supersecretkey}
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+    volumes:
+      # Mount the credentials file at runtime instead of baking it in
+      - ./supplier-service/firebase-credentials.json:/app/firebase-credentials.json:ro
+    networks:
+      - supply-chain-net
+    restart: unless-stopped
+
+  # ── Inventory Backend ─────────────────────────────────────────────
+  inventory-service:
+    build:
+      context: ./Inventory backend
+      dockerfile: Dockerfile
+    container_name: inventory-service
+    ports:
+      - "8082:8082"
+    environment:
+      - JWT_SECRET_KEY=${INVENTORY_JWT_SECRET:-mo66Vl2qjhioWNYGAGKfcgfcjOd-QfEU5mdIu8y6cVs}
+      - JWT_ALGORITHM=HS256
+      # Inside container the file is at /app/hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+      - FIREBASE_SERVICE_ACCOUNT=/app/hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+      - FIREBASE_STORAGE_BUCKET=hotel-supply-system1.firebasestorage.app
+    volumes:
+      - ./Inventory backend/hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json:/app/hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json:ro
+    networks:
+      - supply-chain-net
+    restart: unless-stopped
+
+  # ── Order Service ─────────────────────────────────────────────────
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    container_name: order-service
+    ports:
+      - "8083:8083"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8083
+      - LOG_LEVEL=INFO
+      # The service account key is mounted below; path must match FIREBASE_SERVICE_ACCOUNT_KEY
+      - FIREBASE_SERVICE_ACCOUNT_KEY=/app/order-management-service.json
+    volumes:
+      - ./order-service/order-management-service.json:/app/order-management-service.json:ro
+    networks:
+      - supply-chain-net
+    restart: unless-stopped
+
+# ─────────────────────────────────────────────────────────────────
+#  Shared network so containers can reach each other by name
+# ─────────────────────────────────────────────────────────────────
+networks:
+  supply-chain-net:
+    driver: bridge

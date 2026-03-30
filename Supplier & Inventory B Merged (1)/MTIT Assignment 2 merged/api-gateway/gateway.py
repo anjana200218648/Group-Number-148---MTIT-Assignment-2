@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 # Create FastAPI app
 app = FastAPI(
     title="API Gateway",
-    description="Gateway for Supplier Management and Inventory Services",
+    description="Gateway for Supplier Management, Inventory, and Order Services",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
@@ -40,6 +40,10 @@ SERVICES = {
     "inventory": {
         "url": os.getenv("INVENTORY_SERVICE_URL", "http://localhost:8082"),
         "prefix": "/api/inventory"
+    },
+    "order": {
+        "url": os.getenv("ORDER_SERVICE_URL", "http://localhost:8083"),
+        "prefix": "/api/order"
     }
 }
 
@@ -79,8 +83,16 @@ async def health_check():
     for name, config in SERVICES.items():
         try:
             response = await client.get(f"{config['url']}/health", timeout=5.0)
+            # Accept both "healthy" and "ok" (inventory returns "ok")
+            body = {}
+            try:
+                body = response.json()
+            except Exception:
+                pass
+            svc_status = body.get("status", "")
+            is_healthy = response.status_code == 200 and svc_status in ("healthy", "ok")
             health_status[name] = {
-                "status": "healthy" if response.status_code == 200 else "unhealthy",
+                "status": "healthy" if is_healthy else "unhealthy",
                 "url": config["url"],
                 "response": response.status_code
             }
