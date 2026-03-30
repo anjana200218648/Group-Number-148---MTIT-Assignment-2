@@ -48,6 +48,11 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage, onPageChange }) => {
     navigate('/login');
   };
 
+  const handleDeliverySystemClick = () => {
+    // Navigate to delivery logistics system
+    navigate('/delivery');
+  };
+
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'admin':
@@ -90,13 +95,20 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage, onPageChange }) => {
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
       </svg>
+    ) },
+    { id: 'delivery', name: 'Delivery System', icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12h2l3 3 3-3 3 3 3-3 3 3 2-3" />
+      </svg>
     ) }
   ];
 
   // Filter menu items based on user role
   const visibleMenuItems = menuItems.filter(item => {
     if (!user) return true;
-    // Everyone can see dashboard, suppliers, performance, and stock system
+    // Everyone can see dashboard, suppliers, performance, stock system, and delivery system
     return true;
   });
 
@@ -125,6 +137,8 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage, onPageChange }) => {
                 onClick={() => {
                   if (item.id === 'stock') {
                     handleStockSystemClick();
+                  } else if (item.id === 'delivery') {
+                    handleDeliverySystemClick();
                   } else {
                     onPageChange(item.id);
                   }
@@ -231,6 +245,8 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage, onPageChange }) => {
               onClick={() => {
                 if (item.id === 'stock') {
                   handleStockSystemClick();
+                } else if (item.id === 'delivery') {
+                  handleDeliverySystemClick();
                 } else {
                   onPageChange(item.id);
                 }
