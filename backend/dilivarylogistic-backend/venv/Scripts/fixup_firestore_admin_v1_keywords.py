@@ -1,4 +1,4 @@
-#!D:\new MTIT\Group-Number-148---MTIT-Assignment-2\backend\dilivarylogistic-backend\venv\Scripts\python.exe
+#!D:\MTIT\Group-Number-148---MTIT-Assignment-2\backend\dilivarylogistic-backend\venv\Scripts\python.exe
 # -*- coding: utf-8 -*-
 # Copyright 2023 Google LLC
 #

@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set VIRTUAL_ENV=D:\new MTIT\Group-Number-148---MTIT-Assignment-2\backend\api-gateway\venv
+set VIRTUAL_ENV=D:\MTIT\Group-Number-148---MTIT-Assignment-2\backend\api-gateway\venv
 
 if not defined PROMPT set PROMPT=$P$G
 
