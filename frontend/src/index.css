@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-100: #F5F5DC;
+  --color-brand-200: #DEB887;
+  --color-brand-300: #CD853F;
+  --color-brand-400: #A67B5B;
+  --color-brand-500: #A0522D;
+  --color-brand-600: #8B4513;
+
+  /* Custom fonts */
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-brand-100 text-brand-600 font-sans;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font-family: inherit;
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
+  }
+}
