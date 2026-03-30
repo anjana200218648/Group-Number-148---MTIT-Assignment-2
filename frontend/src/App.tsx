@@ -10,6 +10,15 @@ import SupplierList from './components/Suppliers/SupplierList';
 import DashboardStats from './components/Dashboard/DashboardStats';
 import Navbar from './components/Layout/Navbar';
 import PerformanceMetrics from './components/Performance/PerformanceMetrics';
+import { Toaster } from 'react-hot-toast';
+
+// Delivery Microservice Imports
+import CreateDelivery from './components/delivery/CreateDelivery';
+import DeliveryTracker from './components/delivery/DeliveryTracker';
+import DeliveryList from './components/delivery/DeliveryList';
+import HotelDeliveries from './pages/HotelDeliveries';
+import DeliveryDashboard from './pages/DelivarylogisticDashboard';
+import Analytics from './components/delivery/Analytics';
 
 // PrivateRoute Component
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -79,80 +88,109 @@ function App() {
 
   return (
     <Router>
-      
-        
+      {/* Add Toaster for delivery notifications */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            borderRadius: '8px',
+            background: '#1A2C3E',
+            color: '#fff',
+          },
+          success: {
+            iconTheme: {
+              primary: '#7d1616',
+              secondary: '#1A2C3E',
+            },
+          },
+        }}
+      />
 
-        <main className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 flex-grow relative">
-          <Routes>
-            {/* Root path - redirect to dashboard or login based on auth */}
-            <Route path="/" element={
-              localStorage.getItem('token') 
-                ? <Navigate to="/dashboard" replace /> 
-                : <Navigate to="/login2" replace />
-            } />
-            
-            <Route path="/login2" element={<Login2 />} />
-            <Route path="/login" element={<Login />} />
-            
-            {/* Dashboard Route with Navbar - This shows DashboardStats by default */}
-            <Route path="/dashboard" element={
-              <PrivateRoute>
-                <DashboardLayout 
-                  currentPage={currentPage} 
-                  onPageChange={setCurrentPage}
-                >
-                  {renderPage()}
-                </DashboardLayout>
-              </PrivateRoute>
-            } />
-            
-            {/* Role-based Routes with Navbar */}
-            <Route path="/user" element={
-              <PrivateRoute>
-                <DashboardLayout 
-                  currentPage={currentPage} 
-                  onPageChange={setCurrentPage}
-                >
-                  <UserDashboard />
-                </DashboardLayout>
-              </PrivateRoute>
-            } />
-            
-            <Route path="/supplier" element={
-              <PrivateRoute>
-                <DashboardLayout 
-                  currentPage={currentPage} 
-                  onPageChange={setCurrentPage}
-                >
-                  <SupplierDashboard />
-                </DashboardLayout>
-              </PrivateRoute>
-            } />
-            
-            <Route path="/admin" element={
-              <PrivateRoute>
-                <DashboardLayout 
-                  currentPage={currentPage} 
-                  onPageChange={setCurrentPage}
-                >
-                  <AdminDashboard />
-                </DashboardLayout>
-              </PrivateRoute>
-            } />
-            
-            <Route path="/superadmin" element={
-              <PrivateRoute>
-                <DashboardLayout 
-                  currentPage={currentPage} 
-                  onPageChange={setCurrentPage}
-                >
-                  <SuperAdminDashboard />
-                </DashboardLayout>
-              </PrivateRoute>
-            } />
-          </Routes>
-        </main>
-     
+      <main className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 flex-grow relative">
+        <Routes>
+          {/* Root path - redirect to dashboard or login based on auth */}
+          <Route path="/" element={
+            localStorage.getItem('token') 
+              ? <Navigate to="/dashboard" replace /> 
+              : <Navigate to="/login" replace />
+          } />
+          
+          <Route path="/login" element={<Login />} />
+          <Route path="/login2" element={<Login2 />} />
+          
+          {/* Dashboard Route with Navbar - This shows DashboardStats by default */}
+          <Route path="/dashboard" element={
+            <PrivateRoute>
+              <DashboardLayout 
+                currentPage={currentPage} 
+                onPageChange={setCurrentPage}
+              >
+                {renderPage()}
+              </DashboardLayout>
+            </PrivateRoute>
+          } />
+          
+          {/* Role-based Routes with Navbar */}
+          <Route path="/user" element={
+            <PrivateRoute>
+              <DashboardLayout 
+                currentPage={currentPage} 
+                onPageChange={setCurrentPage}
+              >
+                <UserDashboard />
+              </DashboardLayout>
+            </PrivateRoute>
+          } />
+          
+          <Route path="/supplier" element={
+            <PrivateRoute>
+              <DashboardLayout 
+                currentPage={currentPage} 
+                onPageChange={setCurrentPage}
+              >
+                <SupplierDashboard />
+              </DashboardLayout>
+            </PrivateRoute>
+          } />
+          
+          <Route path="/admin" element={
+            <PrivateRoute>
+              <DashboardLayout 
+                currentPage={currentPage} 
+                onPageChange={setCurrentPage}
+              >
+                <AdminDashboard />
+              </DashboardLayout>
+            </PrivateRoute>
+          } />
+          
+          <Route path="/superadmin" element={
+            <PrivateRoute>
+              <DashboardLayout 
+                currentPage={currentPage} 
+                onPageChange={setCurrentPage}
+              >
+                <SuperAdminDashboard />
+              </DashboardLayout>
+            </PrivateRoute>
+          } />
+
+          {/* Delivery Microservice Routes - Direct access (no prefix needed) */}
+          <Route path="/delivery" element={<DeliveryDashboard />} />
+          <Route path="/create" element={<CreateDelivery />} />
+          <Route path="/track/:orderId" element={<DeliveryTracker />} />
+          <Route path="/deliveries" element={<DeliveryList />} />
+          <Route path="/hotel/:hotelId" element={<HotelDeliveries />} />
+          <Route path="/analytics" element={<Analytics />} />
+          
+          {/* Also keep prefixed routes for backward compatibility */}
+          <Route path="/delivery/create" element={<CreateDelivery />} />
+          <Route path="/delivery/track/:orderId" element={<DeliveryTracker />} />
+          <Route path="/delivery/orders" element={<DeliveryList />} />
+          <Route path="/delivery/hotel/:hotelId" element={<HotelDeliveries />} />
+          <Route path="/delivery/analytics" element={<Analytics />} />
+        </Routes>
+      </main>
     </Router>
   );
 }
