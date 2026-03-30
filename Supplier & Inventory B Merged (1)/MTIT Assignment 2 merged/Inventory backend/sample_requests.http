@@ -1,0 +1,54 @@
+### INVENTORY SERVICE SAMPLE REQUESTS
+# These requests can be run using the REST Client extension in VSCode or PyCharm.
+# They demonstrate how to interact with the API Gateway (port 8080) and Backend (port 8082).
+
+# 1. Create a new item (JSON version without image uploads)
+POST http://localhost:8082/items/json
+Content-Type: application/json
+Authorization: Bearer <YOUR_ACCESS_TOKEN>
+
+{
+    "name": "Bratwurst Sausages Pack",
+    "price": 12.50,
+    "quantity": 50,
+    "image_url": "https://example.com/images/bratwurst.png",
+    "expiry_date": "2024-12-31",
+    "supplier_id": "supp_12345"
+}
+
+###
+
+# 2. Get all items
+GET http://localhost:8082/items/
+Accept: application/json
+
+###
+
+# 3. Get item by ID (Replace ITEM_ID with an actual ID from the GET all response)
+GET http://localhost:8082/items/ITEM_ID
+Accept: application/json
+
+###
+
+# 4. Update item price and quantity
+PUT http://localhost:8082/items/ITEM_ID
+Content-Type: application/json
+Authorization: Bearer <YOUR_ACCESS_TOKEN>
+
+{
+    "price": 14.50,
+    "quantity": 40
+}
+
+###
+
+# 5. Delete item by ID
+DELETE http://localhost:8082/items/ITEM_ID
+Authorization: Bearer <YOUR_ACCESS_TOKEN>
+
+###
+
+# 6. Test via API Gateway (Port 80)
+# Port 80 on the API gateway forwards /api/items to /items on backend
+GET http://localhost:8080/api/items/
+Accept: application/json
