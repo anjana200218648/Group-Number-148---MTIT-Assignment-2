@@ -2,3 +2,4 @@ venv/
 *.pyd
 *firebase-adminsdk*.json
 *.json 
+*.env
