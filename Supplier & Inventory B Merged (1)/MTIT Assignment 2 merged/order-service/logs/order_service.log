@@ -311,3 +311,106 @@ Fix one of the following in your .env file:
 2026-03-28 12:55:57 | INFO     | app.utils.logger:log_order_action:33 - ORDER ACTION | action=STATUS_UPDATE | order_id=705f1268-cc97-4123-9e5d-bfb68bd4bca5 | from=Approved | to=Dispatched
 2026-03-28 13:18:34 | INFO     | app.utils.logger:log_order_action:33 - ORDER ACTION | action=CREATE | order_id=b3e4a060-8558-4ff7-bcb5-5ac0732bd7ce | restaurant_id=Rest-02 | total=40000.0
 2026-03-28 13:37:44 | INFO     | app.utils.logger:log_order_action:33 - ORDER ACTION | action=DELETE | order_id=b3e4a060-8558-4ff7-bcb5-5ac0732bd7ce | status_at_delete=Pending
+2026-03-30 23:24:50 | INFO     | app.main:lifespan:22 - 🚀 Order Management Service starting up...
+2026-03-30 23:24:50 | DEBUG    | app.database.firebase_config:_resolve_credentials:64 - Firebase: FIREBASE_SERVICE_ACCOUNT_KEY = 'order-management-service.json'
+2026-03-30 23:24:50 | DEBUG    | app.database.firebase_config:_resolve_credentials:68 - Firebase: resolved key path = D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\order-management-service.json
+2026-03-30 23:24:50 | INFO     | app.database.firebase_config:_resolve_credentials:83 - Firebase: loading credentials from file → D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\order-management-service.json
+2026-03-30 23:24:50 | INFO     | app.database.firebase_config:initialize_firebase:105 - ✅ Firebase Admin SDK initialised successfully.
+2026-03-30 23:24:50 | INFO     | app.database.firebase_config:initialize_firebase:110 - ✅ Firestore client ready.
+2026-03-30 23:24:50 | INFO     | app.main:lifespan:25 - ✅ Firebase initialized
+2026-03-30 23:27:17 | ERROR    | app.utils.logger:log_error:39 - ERROR | context=create_order | error=Timeout of 60.0s exceeded, last exception: 503 Getting metadata from plugin failed with error: ('invalid_grant: Invalid JWT Signature.', {'error': 'invalid_grant', 'error_description': 'Invalid JWT Signature.'})
+2026-03-30 23:35:33 | ERROR    | app.utils.logger:log_error:39 - ERROR | context=create_order | error=Timeout of 60.0s exceeded, last exception: 503 Getting metadata from plugin failed with error: ('invalid_grant: Invalid JWT Signature.', {'error': 'invalid_grant', 'error_description': 'Invalid JWT Signature.'})
+2026-03-30 23:37:44 | ERROR    | app.utils.logger:log_error:39 - ERROR | context=create_order | error=Timeout of 60.0s exceeded, last exception: 503 Getting metadata from plugin failed with error: ('invalid_grant: Invalid JWT Signature.', {'error': 'invalid_grant', 'error_description': 'Invalid JWT Signature.'})
+2026-03-31 07:44:37 | INFO     | app.main:lifespan:22 - 🚀 Order Management Service starting up...
+2026-03-31 07:44:37 | DEBUG    | app.database.firebase_config:_resolve_credentials:64 - Firebase: FIREBASE_SERVICE_ACCOUNT_KEY = 'hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json'
+2026-03-31 07:44:37 | DEBUG    | app.database.firebase_config:_resolve_credentials:68 - Firebase: resolved key path = D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 07:44:37 | INFO     | app.database.firebase_config:_resolve_credentials:83 - Firebase: loading credentials from file → D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 07:44:37 | INFO     | app.database.firebase_config:initialize_firebase:105 - ✅ Firebase Admin SDK initialised successfully.
+2026-03-31 07:44:37 | INFO     | app.database.firebase_config:initialize_firebase:110 - ✅ Firestore client ready.
+2026-03-31 07:44:37 | INFO     | app.main:lifespan:25 - ✅ Firebase initialized
+2026-03-31 07:46:36 | ERROR    | app.utils.logger:log_error:39 - ERROR | context=create_order | error=Timeout of 60.0s exceeded, last exception: 503 Getting metadata from plugin failed with error: ('invalid_grant: Invalid JWT Signature.', {'error': 'invalid_grant', 'error_description': 'Invalid JWT Signature.'})
+2026-03-31 07:50:31 | ERROR    | app.utils.logger:log_error:39 - ERROR | context=create_order | error=Timeout of 60.0s exceeded, last exception: 503 Getting metadata from plugin failed with error: ('invalid_grant: Invalid JWT Signature.', {'error': 'invalid_grant', 'error_description': 'Invalid JWT Signature.'})
+2026-03-31 10:01:35 | INFO     | app.main:lifespan:22 - 🚀 Order Management Service starting up...
+2026-03-31 10:01:35 | DEBUG    | app.database.firebase_config:_resolve_credentials:64 - Firebase: FIREBASE_SERVICE_ACCOUNT_KEY = 'hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json'
+2026-03-31 10:01:35 | DEBUG    | app.database.firebase_config:_resolve_credentials:68 - Firebase: resolved key path = D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 10:01:35 | INFO     | app.database.firebase_config:_resolve_credentials:83 - Firebase: loading credentials from file → D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 10:01:35 | INFO     | app.database.firebase_config:initialize_firebase:105 - ✅ Firebase Admin SDK initialised successfully.
+2026-03-31 10:01:35 | INFO     | app.database.firebase_config:initialize_firebase:110 - ✅ Firestore client ready.
+2026-03-31 10:01:35 | INFO     | app.main:lifespan:25 - ✅ Firebase initialized
+2026-03-31 10:03:07 | ERROR    | app.utils.logger:log_error:39 - ERROR | context=create_order | error=Timeout of 60.0s exceeded, last exception: 503 Getting metadata from plugin failed with error: ('invalid_grant: Invalid JWT Signature.', {'error': 'invalid_grant', 'error_description': 'Invalid JWT Signature.'})
+2026-03-31 10:33:50 | INFO     | app.main:lifespan:22 - 🚀 Order Management Service starting up...
+2026-03-31 10:33:50 | DEBUG    | app.database.firebase_config:_resolve_credentials:64 - Firebase: FIREBASE_SERVICE_ACCOUNT_KEY = 'hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json'
+2026-03-31 10:33:50 | DEBUG    | app.database.firebase_config:_resolve_credentials:68 - Firebase: resolved key path = D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 10:33:50 | INFO     | app.database.firebase_config:_resolve_credentials:84 - Firebase: loading credentials from file → D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 10:33:50 | INFO     | app.database.firebase_config:initialize_firebase:106 - ✅ Firebase Admin SDK initialised successfully.
+2026-03-31 10:33:50 | INFO     | app.database.firebase_config:initialize_firebase:112 - ✅ Firestore client ready.
+2026-03-31 10:33:50 | INFO     | app.main:lifespan:25 - ✅ Firebase initialized
+2026-03-31 10:36:23 | INFO     | app.main:lifespan:29 - 🛑 Order Management Service shutting down...
+2026-03-31 10:36:24 | INFO     | app.main:lifespan:22 - 🚀 Order Management Service starting up...
+2026-03-31 10:36:24 | DEBUG    | app.database.firebase_config:_resolve_credentials:64 - Firebase: FIREBASE_SERVICE_ACCOUNT_KEY = 'hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json'
+2026-03-31 10:36:24 | DEBUG    | app.database.firebase_config:_resolve_credentials:68 - Firebase: resolved key path = D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 10:36:24 | INFO     | app.database.firebase_config:_resolve_credentials:84 - Firebase: loading credentials from file → D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 10:36:24 | INFO     | app.database.firebase_config:initialize_firebase:106 - ✅ Firebase Admin SDK initialised successfully.
+2026-03-31 10:36:24 | INFO     | app.database.firebase_config:initialize_firebase:112 - ✅ Firestore client ready.
+2026-03-31 10:36:24 | INFO     | app.main:lifespan:25 - ✅ Firebase initialized
+2026-03-31 10:36:26 | INFO     | app.main:lifespan:22 - 🚀 Order Management Service starting up...
+2026-03-31 10:36:26 | DEBUG    | app.database.firebase_config:_resolve_credentials:64 - Firebase: FIREBASE_SERVICE_ACCOUNT_KEY = 'hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json'
+2026-03-31 10:36:26 | DEBUG    | app.database.firebase_config:_resolve_credentials:68 - Firebase: resolved key path = D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 10:36:26 | INFO     | app.database.firebase_config:_resolve_credentials:84 - Firebase: loading credentials from file → D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 10:36:26 | INFO     | app.database.firebase_config:initialize_firebase:106 - ✅ Firebase Admin SDK initialised successfully.
+2026-03-31 10:36:26 | INFO     | app.database.firebase_config:initialize_firebase:112 - ✅ Firestore client ready.
+2026-03-31 10:36:26 | INFO     | app.main:lifespan:25 - ✅ Firebase initialized
+2026-03-31 10:57:59 | INFO     | app.main:lifespan:22 - 🚀 Order Management Service starting up...
+2026-03-31 10:57:59 | DEBUG    | app.database.firebase_config:_resolve_credentials:64 - Firebase: FIREBASE_SERVICE_ACCOUNT_KEY = 'hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json'
+2026-03-31 10:57:59 | DEBUG    | app.database.firebase_config:_resolve_credentials:68 - Firebase: resolved key path = D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 10:57:59 | INFO     | app.database.firebase_config:_resolve_credentials:84 - Firebase: loading credentials from file → D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 10:57:59 | INFO     | app.database.firebase_config:initialize_firebase:106 - ✅ Firebase Admin SDK initialised successfully.
+2026-03-31 10:57:59 | INFO     | app.database.firebase_config:initialize_firebase:112 - ✅ Firestore client ready.
+2026-03-31 10:57:59 | INFO     | app.main:lifespan:25 - ✅ Firebase initialized
+2026-03-31 10:57:59 | INFO     | app.main:lifespan:29 - 🛑 Order Management Service shutting down...
+2026-03-31 10:58:19 | INFO     | app.main:lifespan:22 - 🚀 Order Management Service starting up...
+2026-03-31 10:58:19 | DEBUG    | app.database.firebase_config:_resolve_credentials:64 - Firebase: FIREBASE_SERVICE_ACCOUNT_KEY = 'hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json'
+2026-03-31 10:58:19 | DEBUG    | app.database.firebase_config:_resolve_credentials:68 - Firebase: resolved key path = D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 10:58:19 | INFO     | app.database.firebase_config:_resolve_credentials:84 - Firebase: loading credentials from file → D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 10:58:19 | INFO     | app.database.firebase_config:initialize_firebase:106 - ✅ Firebase Admin SDK initialised successfully.
+2026-03-31 10:58:19 | INFO     | app.database.firebase_config:initialize_firebase:112 - ✅ Firestore client ready.
+2026-03-31 10:58:19 | INFO     | app.main:lifespan:25 - ✅ Firebase initialized
+2026-03-31 10:59:43 | ERROR    | app.utils.logger:log_error:39 - ERROR | context=create_order | error=Timeout of 60.0s exceeded, last exception: 503 Getting metadata from plugin failed with error: ('invalid_grant: Invalid JWT Signature.', {'error': 'invalid_grant', 'error_description': 'Invalid JWT Signature.'})
+2026-03-31 11:00:25 | INFO     | app.main:lifespan:29 - 🛑 Order Management Service shutting down...
+2026-03-31 11:00:26 | INFO     | app.main:lifespan:22 - 🚀 Order Management Service starting up...
+2026-03-31 11:00:26 | DEBUG    | app.database.firebase_config:_resolve_credentials:64 - Firebase: FIREBASE_SERVICE_ACCOUNT_KEY = 'hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json'
+2026-03-31 11:00:26 | DEBUG    | app.database.firebase_config:_resolve_credentials:68 - Firebase: resolved key path = D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 11:00:26 | INFO     | app.database.firebase_config:_resolve_credentials:84 - Firebase: loading credentials from file → D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 11:00:26 | INFO     | app.database.firebase_config:initialize_firebase:115 - ✅ Firebase Admin SDK initialised successfully.
+2026-03-31 11:00:26 | INFO     | app.database.firebase_config:initialize_firebase:121 - ✅ Firestore client ready.
+2026-03-31 11:00:26 | INFO     | app.main:lifespan:25 - ✅ Firebase initialized
+2026-03-31 11:00:27 | INFO     | app.main:lifespan:22 - 🚀 Order Management Service starting up...
+2026-03-31 11:00:27 | DEBUG    | app.database.firebase_config:_resolve_credentials:64 - Firebase: FIREBASE_SERVICE_ACCOUNT_KEY = 'hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json'
+2026-03-31 11:00:27 | DEBUG    | app.database.firebase_config:_resolve_credentials:68 - Firebase: resolved key path = D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 11:00:27 | INFO     | app.database.firebase_config:_resolve_credentials:84 - Firebase: loading credentials from file → D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 11:00:27 | INFO     | app.database.firebase_config:initialize_firebase:115 - ✅ Firebase Admin SDK initialised successfully.
+2026-03-31 11:00:27 | INFO     | app.database.firebase_config:initialize_firebase:121 - ✅ Firestore client ready.
+2026-03-31 11:00:27 | INFO     | app.main:lifespan:25 - ✅ Firebase initialized
+2026-03-31 11:03:02 | INFO     | app.main:lifespan:29 - 🛑 Order Management Service shutting down...
+2026-03-31 11:03:06 | INFO     | app.main:lifespan:29 - 🛑 Order Management Service shutting down...
+2026-03-31 11:03:07 | INFO     | app.main:lifespan:22 - 🚀 Order Management Service starting up...
+2026-03-31 11:03:07 | DEBUG    | app.database.firebase_config:_resolve_credentials:64 - Firebase: FIREBASE_SERVICE_ACCOUNT_KEY = 'hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json'
+2026-03-31 11:03:07 | DEBUG    | app.database.firebase_config:_resolve_credentials:68 - Firebase: resolved key path = D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 11:03:07 | INFO     | app.database.firebase_config:_resolve_credentials:84 - Firebase: loading credentials from file → D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 11:03:07 | INFO     | app.database.firebase_config:initialize_firebase:115 - ✅ Firebase Admin SDK initialised successfully.
+2026-03-31 11:03:07 | INFO     | app.database.firebase_config:initialize_firebase:121 - ✅ Firestore client ready.
+2026-03-31 11:03:07 | INFO     | app.main:lifespan:25 - ✅ Firebase initialized
+2026-03-31 11:03:08 | INFO     | app.main:lifespan:22 - 🚀 Order Management Service starting up...
+2026-03-31 11:03:08 | DEBUG    | app.database.firebase_config:_resolve_credentials:64 - Firebase: FIREBASE_SERVICE_ACCOUNT_KEY = 'hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json'
+2026-03-31 11:03:08 | DEBUG    | app.database.firebase_config:_resolve_credentials:68 - Firebase: resolved key path = D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 11:03:08 | INFO     | app.database.firebase_config:_resolve_credentials:84 - Firebase: loading credentials from file → D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 11:03:09 | INFO     | app.database.firebase_config:initialize_firebase:115 - ✅ Firebase Admin SDK initialised successfully.
+2026-03-31 11:03:09 | INFO     | app.database.firebase_config:initialize_firebase:121 - ✅ Firestore client ready.
+2026-03-31 11:03:09 | INFO     | app.main:lifespan:25 - ✅ Firebase initialized
+2026-03-31 11:03:16 | INFO     | app.main:lifespan:22 - 🚀 Order Management Service starting up...
+2026-03-31 11:03:16 | DEBUG    | app.database.firebase_config:_resolve_credentials:64 - Firebase: FIREBASE_SERVICE_ACCOUNT_KEY = 'hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json'
+2026-03-31 11:03:16 | DEBUG    | app.database.firebase_config:_resolve_credentials:68 - Firebase: resolved key path = D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 11:03:16 | INFO     | app.database.firebase_config:_resolve_credentials:84 - Firebase: loading credentials from file → D:\MTIT Assignment 2 merged\Group-Number-148---MTIT-Assignment-2\Supplier & Inventory B Merged (1)\MTIT Assignment 2 merged\order-service\hotel-supply-system1-firebase-adminsdk-fbsvc-bc8b74ef85.json
+2026-03-31 11:03:16 | INFO     | app.database.firebase_config:initialize_firebase:115 - ✅ Firebase Admin SDK initialised successfully.
+2026-03-31 11:03:16 | INFO     | app.database.firebase_config:initialize_firebase:121 - ✅ Firestore client ready.
+2026-03-31 11:03:16 | INFO     | app.main:lifespan:25 - ✅ Firebase initialized

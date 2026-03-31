@@ -77,11 +77,21 @@ def _resolve_credentials() -> credentials.Certificate:
             "      FIREBASE_CREDENTIALS_JSON={\"type\":\"service_account\", ...}\n"
         )
 
-    # Set GOOGLE_APPLICATION_CREDENTIALS for Application Default Credentials fallback
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_path
+    # (OPTIONAL) Set GOOGLE_APPLICATION_CREDENTIALS for any underlying libraries that rely on ADC
+    # We'll skip this to ensure we exclusively use the manual credential passed to initialize_app
+    # os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_path
 
     logger.info(f"Firebase: loading credentials from file → {key_path}")
-    return credentials.Certificate(key_path)
+    
+    # Manually load and sanitize to avoid "Invalid JWT Signature" 
+    # which can be caused by trailing whitespace/newlines in some environments.
+    with open(key_path, "r", encoding="utf-8") as f:
+        cred_dict = json.load(f)
+    
+    if "private_key" in cred_dict:
+        cred_dict["private_key"] = cred_dict["private_key"].strip()
+        
+    return credentials.Certificate(cred_dict)
 
 
 # ─────────────────────────────────────────────
@@ -101,12 +111,13 @@ def initialize_firebase() -> firestore.Client:
     try:
         if not firebase_admin._apps:
             cred = _resolve_credentials()
-            firebase_admin.initialize_app(cred)
+            app = firebase_admin.initialize_app(cred)
             logger.info("✅ Firebase Admin SDK initialised successfully.")
         else:
+            app = firebase_admin.get_app()
             logger.info("Firebase Admin SDK already initialised — reusing existing app.")
 
-        _db = firestore.client()
+        _db = firestore.client(app=app)
         logger.info("✅ Firestore client ready.")
         return _db
 
