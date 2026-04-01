@@ -31,6 +31,10 @@ class DriverStatus(str, Enum):
     BUSY = "busy"
     ON_BREAK = "on_break"
 
+class DeliveryType(str, Enum):
+    HOTEL = "hotel"
+    CUSTOMER = "customer"
+
 class HotelInfo(BaseModel):
     hotel_id: str
     hotel_name: str
@@ -104,6 +108,12 @@ class DeliveryOrder(BaseModel):
     proof_of_delivery: Optional[str] = None
     customer_signature: Optional[str] = None
     current_location: Optional[Dict[str, float]] = None
+    
+    # NEW FIELD: Delivery type (hotel or customer)
+    delivery_type: Optional[DeliveryType] = None
+    
+    # NEW FIELD: Driver location for real-time tracking
+    driver_location: Optional[Dict[str, float]] = None
     
     @validator('hotel_info', 'customer_info', pre=True)
     def validate_info(cls, v):

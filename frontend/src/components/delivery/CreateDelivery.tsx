@@ -29,8 +29,12 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  FormHelperText,
   Tooltip,
+  FormControlLabel,
+  Checkbox,
+  RadioGroup,
+  Radio,
+  FormLabel,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -39,6 +43,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import BusinessIcon from '@mui/icons-material/Business';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
+import HomeIcon from '@mui/icons-material/Home';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SpeedIcon from '@mui/icons-material/Speed';
 import TrafficIcon from '@mui/icons-material/Traffic';
@@ -47,30 +52,21 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import PhoneIcon from '@mui/icons-material/Phone';
-import StoreIcon from '@mui/icons-material/Store';
 import { deliveryApi } from '../../services/delivarylogistic';
-import { DeliveryOrder, OrderSize, HotelInfo, CustomerInfo, StockItem } from '../../types/delivery.types';
+import { DeliveryOrder, OrderSize, HotelInfo, CustomerInfo, StockItem, DeliveryType } from '../../types/delivery.types';
 import VehicleSelector from './VehicleSelector';
 
-const steps = ['Hotel/Restaurant', 'Customer Information', 'Order Details', 'Stock Items', 'Confirmation'];
+const steps = ['Delivery Type', 'Destination Details', 'Stock Items', 'Driver Location', 'Confirmation'];
 
 // Validation functions
 const validatePhoneNumber = (phone: string): boolean => {
-  // Sri Lankan phone number validation
-  // Format: 0XXXXXXXXX or +94XXXXXXXXX (10 digits after 0 or 9 digits after +94)
   const sriLankanPhoneRegex = /^(?:(?:\+94)|0)(?:7[0-9]{8}|[1-9][0-9]{8})$/;
   return sriLankanPhoneRegex.test(phone);
 };
 
 const validateHotelCONO = (cono: string): boolean => {
-  // Hotel CONO validation - alphanumeric, 3-15 characters
   const conoRegex = /^[A-Za-z0-9]{3,15}$/;
   return conoRegex.test(cono);
-};
-
-const validateEmail = (email: string): boolean => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
 };
 
 const validateAddress = (address: string): boolean => {
@@ -94,7 +90,42 @@ const CreateDelivery: React.FC = () => {
   const [searchingAddress, setSearchingAddress] = useState(false);
   const [addItemDialog, setAddItemDialog] = useState(false);
   
-  // Validation errors state
+  // Delivery type selection - using DeliveryType enum
+  const [deliveryType, setDeliveryType] = useState<DeliveryType>(DeliveryType.HOTEL);
+  
+  // Driver location states
+  const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [driverAddress, setDriverAddress] = useState('');
+  const [searchingDriverAddress, setSearchingDriverAddress] = useState(false);
+  
+  // Hotel/Restaurant information (for delivery to hotels/restaurants)
+  const [hotelInfo, setHotelInfo] = useState<HotelInfo>({
+    hotel_id: '',
+    hotel_name: '',
+    hotel_cono: '',
+    address: '',
+    phone: '',
+    latitude: undefined,
+    longitude: undefined,
+  });
+
+  // Customer information (for delivery to regular customers)
+  const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
+    name: '',
+    phone: '',
+    address: '',
+    latitude: undefined,
+    longitude: undefined,
+  });
+
+  // Stock items
+  const [items, setItems] = useState<StockItem[]>([]);
+  const [orderSize, setOrderSize] = useState<OrderSize>(OrderSize.SMALL);
+  const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
+  const [totalWeight, setTotalWeight] = useState(0);
+  const [totalValue, setTotalValue] = useState(0);
+
+  // Validation errors
   const [errors, setErrors] = useState({
     hotel: {
       hotel_id: '',
@@ -108,7 +139,6 @@ const CreateDelivery: React.FC = () => {
       phone: '',
       address: '',
     },
-    items: [] as string[],
   });
 
   const [newItem, setNewItem] = useState<Partial<StockItem>>({
@@ -127,33 +157,6 @@ const CreateDelivery: React.FC = () => {
     weight_kg: '',
     unit_price: '',
   });
-  
-  // Hotel/Restaurant information (where the order is coming from)
-  const [hotelInfo, setHotelInfo] = useState<HotelInfo>({
-    hotel_id: '',
-    hotel_name: '',
-    hotel_cono: '',
-    address: '',
-    phone: '',
-    latitude: undefined,
-    longitude: undefined,
-  });
-
-  // Customer information (delivery destination)
-  const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
-    name: '',
-    phone: '',
-    address: '',
-    latitude: undefined,
-    longitude: undefined,
-  });
-
-  // Stock items
-  const [items, setItems] = useState<StockItem[]>([]);
-  const [orderSize, setOrderSize] = useState<OrderSize>(OrderSize.SMALL);
-  const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
-  const [totalWeight, setTotalWeight] = useState(0);
-  const [totalValue, setTotalValue] = useState(0);
 
   // Update totals when items change
   useEffect(() => {
@@ -162,7 +165,6 @@ const CreateDelivery: React.FC = () => {
     setTotalWeight(weight);
     setTotalValue(value);
     
-    // Auto-determine order size based on total weight
     if (weight <= 5) {
       setOrderSize(OrderSize.SMALL);
     } else if (weight <= 20) {
@@ -174,90 +176,88 @@ const CreateDelivery: React.FC = () => {
     }
   }, [items]);
 
-  // Validate hotel information
-  const validateHotelInfo = (): boolean => {
-    const newErrors = {
-      hotel_id: '',
-      hotel_name: '',
-      hotel_cono: '',
-      address: '',
-      phone: '',
-    };
-    let isValid = true;
+  // Validate destination based on delivery type
+  const validateDestination = (): boolean => {
+    if (deliveryType === DeliveryType.HOTEL) {
+      const newErrors = {
+        hotel_id: '',
+        hotel_name: '',
+        hotel_cono: '',
+        address: '',
+        phone: '',
+      };
+      let isValid = true;
 
-    if (!hotelInfo.hotel_id.trim()) {
-      newErrors.hotel_id = 'Hotel ID is required';
-      isValid = false;
+      if (!hotelInfo.hotel_id.trim()) {
+        newErrors.hotel_id = 'Hotel ID is required';
+        isValid = false;
+      }
+
+      if (!hotelInfo.hotel_name.trim()) {
+        newErrors.hotel_name = 'Hotel name is required';
+        isValid = false;
+      }
+
+      if (!hotelInfo.hotel_cono.trim()) {
+        newErrors.hotel_cono = 'Hotel CONO is required';
+        isValid = false;
+      } else if (!validateHotelCONO(hotelInfo.hotel_cono)) {
+        newErrors.hotel_cono = 'CONO must be 3-15 alphanumeric characters';
+        isValid = false;
+      }
+
+      if (!hotelInfo.address.trim()) {
+        newErrors.address = 'Hotel address is required';
+        isValid = false;
+      } else if (!validateAddress(hotelInfo.address)) {
+        newErrors.address = 'Address must be at least 5 characters';
+        isValid = false;
+      }
+
+      if (!hotelInfo.phone.trim()) {
+        newErrors.phone = 'Phone number is required';
+        isValid = false;
+      } else if (!validatePhoneNumber(hotelInfo.phone)) {
+        newErrors.phone = 'Invalid Sri Lankan phone number';
+        isValid = false;
+      }
+
+      setErrors(prev => ({ ...prev, hotel: newErrors }));
+      return isValid;
+    } else {
+      const newErrors = {
+        name: '',
+        phone: '',
+        address: '',
+      };
+      let isValid = true;
+
+      if (!customerInfo.name.trim()) {
+        newErrors.name = 'Customer name is required';
+        isValid = false;
+      }
+
+      if (!customerInfo.phone.trim()) {
+        newErrors.phone = 'Phone number is required';
+        isValid = false;
+      } else if (!validatePhoneNumber(customerInfo.phone)) {
+        newErrors.phone = 'Invalid Sri Lankan phone number';
+        isValid = false;
+      }
+
+      if (!customerInfo.address.trim()) {
+        newErrors.address = 'Delivery address is required';
+        isValid = false;
+      } else if (!validateAddress(customerInfo.address)) {
+        newErrors.address = 'Address must be at least 5 characters';
+        isValid = false;
+      }
+
+      setErrors(prev => ({ ...prev, customer: newErrors }));
+      return isValid;
     }
-
-    if (!hotelInfo.hotel_name.trim()) {
-      newErrors.hotel_name = 'Hotel name is required';
-      isValid = false;
-    }
-
-    if (!hotelInfo.hotel_cono.trim()) {
-      newErrors.hotel_cono = 'Hotel CONO is required';
-      isValid = false;
-    } else if (!validateHotelCONO(hotelInfo.hotel_cono)) {
-      newErrors.hotel_cono = 'CONO must be 3-15 alphanumeric characters';
-      isValid = false;
-    }
-
-    if (!hotelInfo.address.trim()) {
-      newErrors.address = 'Hotel address is required';
-      isValid = false;
-    } else if (!validateAddress(hotelInfo.address)) {
-      newErrors.address = 'Address must be at least 5 characters';
-      isValid = false;
-    }
-
-    if (!hotelInfo.phone.trim()) {
-      newErrors.phone = 'Phone number is required';
-      isValid = false;
-    } else if (!validatePhoneNumber(hotelInfo.phone)) {
-      newErrors.phone = 'Invalid Sri Lankan phone number (e.g., 0712345678 or +94712345678)';
-      isValid = false;
-    }
-
-    setErrors(prev => ({ ...prev, hotel: newErrors }));
-    return isValid;
   };
 
-  // Validate customer information
-  const validateCustomerInfo = (): boolean => {
-    const newErrors = {
-      name: '',
-      phone: '',
-      address: '',
-    };
-    let isValid = true;
-
-    if (!customerInfo.name.trim()) {
-      newErrors.name = 'Customer name is required';
-      isValid = false;
-    }
-
-    if (!customerInfo.phone.trim()) {
-      newErrors.phone = 'Phone number is required';
-      isValid = false;
-    } else if (!validatePhoneNumber(customerInfo.phone)) {
-      newErrors.phone = 'Invalid Sri Lankan phone number (e.g., 0712345678 or +94712345678)';
-      isValid = false;
-    }
-
-    if (!customerInfo.address.trim()) {
-      newErrors.address = 'Delivery address is required';
-      isValid = false;
-    } else if (!validateAddress(customerInfo.address)) {
-      newErrors.address = 'Address must be at least 5 characters';
-      isValid = false;
-    }
-
-    setErrors(prev => ({ ...prev, customer: newErrors }));
-    return isValid;
-  };
-
-  // Validate new item before adding
   const validateNewItem = (): boolean => {
     const newErrors = {
       item_id: '',
@@ -330,25 +330,25 @@ const CreateDelivery: React.FC = () => {
     toast.success('Item removed');
   };
 
-  const handleHotelAddressSearch = async () => {
-    if (!validateAddress(hotelInfo.address)) {
-      toast.error('Please enter a valid hotel address (minimum 5 characters)');
+  const handleAddressSearch = async (address: string, type: 'hotel' | 'customer') => {
+    if (!validateAddress(address)) {
+      toast.error('Please enter a valid address (minimum 5 characters)');
       return;
     }
     
     setSearchingAddress(true);
     try {
-      const location = await geocodeAddress(hotelInfo.address);
+      const location = await geocodeAddress(address);
       if (location) {
-        setHotelInfo({
-          ...hotelInfo,
-          latitude: location.lat,
-          longitude: location.lng,
-        });
-        toast.success('Hotel location found!');
+        if (type === 'hotel') {
+          setHotelInfo({ ...hotelInfo, latitude: location.lat, longitude: location.lng });
+          toast.success('Hotel location found!');
+        } else {
+          setCustomerInfo({ ...customerInfo, latitude: location.lat, longitude: location.lng });
+          toast.success('Customer location found!');
+        }
         
-        // Auto-calculate estimate if both locations are available
-        if (customerInfo.latitude && customerInfo.longitude && items.length > 0) {
+        if (driverLocation && items.length > 0) {
           await calculateEstimate();
         }
       } else {
@@ -361,25 +361,25 @@ const CreateDelivery: React.FC = () => {
     }
   };
 
-  const handleCustomerAddressSearch = async () => {
-    if (!validateAddress(customerInfo.address)) {
-      toast.error('Please enter a valid delivery address (minimum 5 characters)');
+  const handleDriverAddressSearch = async () => {
+    if (!validateAddress(driverAddress)) {
+      toast.error('Please enter a valid driver address (minimum 5 characters)');
       return;
     }
     
-    setSearchingAddress(true);
+    setSearchingDriverAddress(true);
     try {
-      const location = await geocodeAddress(customerInfo.address);
+      const location = await geocodeAddress(driverAddress);
       if (location) {
-        setCustomerInfo({
-          ...customerInfo,
-          latitude: location.lat,
-          longitude: location.lng,
-        });
-        toast.success('Delivery address found!');
+        setDriverLocation(location);
+        toast.success('Driver location found!');
         
-        // Auto-calculate estimate if both locations are available
-        if (hotelInfo.latitude && hotelInfo.longitude && items.length > 0) {
+        // Check if destination is validated
+        const destinationValid = deliveryType === DeliveryType.HOTEL 
+          ? hotelInfo.latitude && hotelInfo.longitude
+          : customerInfo.latitude && customerInfo.longitude;
+          
+        if (destinationValid && items.length > 0) {
           await calculateEstimate();
         }
       } else {
@@ -388,7 +388,7 @@ const CreateDelivery: React.FC = () => {
     } catch (error) {
       toast.error('Failed to search address');
     } finally {
-      setSearchingAddress(false);
+      setSearchingDriverAddress(false);
     }
   };
 
@@ -396,12 +396,17 @@ const CreateDelivery: React.FC = () => {
     let isValid = true;
     
     if (activeStep === 0) {
-      isValid = validateHotelInfo();
+      isValid = true;
     } else if (activeStep === 1) {
-      isValid = validateCustomerInfo();
+      isValid = validateDestination();
     } else if (activeStep === 2) {
       if (items.length === 0) {
         toast.error('Please add at least one stock item');
+        isValid = false;
+      }
+    } else if (activeStep === 3) {
+      if (!driverLocation) {
+        toast.error('Please enter and validate driver location');
         isValid = false;
       } else {
         const calculated = await calculateEstimate();
@@ -421,22 +426,36 @@ const CreateDelivery: React.FC = () => {
   };
 
   const calculateEstimate = async () => {
-    // Check if coordinates are available
-    if (!hotelInfo.latitude || !hotelInfo.longitude) {
-      toast.error('Please enter and validate hotel address first');
-      return false;
-    }
-    if (!customerInfo.latitude || !customerInfo.longitude) {
-      toast.error('Please enter and validate delivery address first');
-      return false;
-    }
-    if (items.length === 0) {
-      toast.error('Please add at least one stock item');
-      return false;
-    }
-
     setLoading(true);
     try {
+      let destinationLat, destinationLng;
+      
+      if (deliveryType === DeliveryType.HOTEL) {
+        if (!hotelInfo.latitude || !hotelInfo.longitude) {
+          toast.error('Please validate hotel address first');
+          return false;
+        }
+        destinationLat = hotelInfo.latitude;
+        destinationLng = hotelInfo.longitude;
+      } else {
+        if (!customerInfo.latitude || !customerInfo.longitude) {
+          toast.error('Please validate customer address first');
+          return false;
+        }
+        destinationLat = customerInfo.latitude;
+        destinationLng = customerInfo.longitude;
+      }
+      
+      if (!driverLocation) {
+        toast.error('Please validate driver location first');
+        return false;
+      }
+      
+      if (items.length === 0) {
+        toast.error('Please add at least one stock item');
+        return false;
+      }
+
       const order: DeliveryOrder = {
         hotel_info: hotelInfo,
         customer_info: customerInfo,
@@ -444,14 +463,24 @@ const CreateDelivery: React.FC = () => {
         order_size: orderSize,
       };
       
-      const response = await deliveryApi.calculateDetailedEstimate(order);
+      const requestData = {
+        ...order,
+        driver_location: {
+          latitude: driverLocation.lat,
+          longitude: driverLocation.lng
+        },
+        destination_type: deliveryType === DeliveryType.HOTEL ? 'hotel' : 'customer',
+        destination_coordinates: {
+          latitude: destinationLat,
+          longitude: destinationLng
+        }
+      };
+      
+      const response = await deliveryApi.calculateDetailedEstimate(requestData);
       if (response.success) {
         setEstimate(response.data);
-        
-        const breakdown = response.data.breakdown;
         toast.success(
-          ` Distance: ${response.data.distance_km} km |  Est: ${response.data.estimated_minutes} min\n` +
-          ` Processing: ${breakdown.order_processing} |  Travel: ${breakdown.travel_time}`
+          `Distance from Driver to ${deliveryType === DeliveryType.HOTEL ? 'Hotel' : 'Customer'}: ${response.data.distance_km} km | Est: ${response.data.estimated_minutes} min`
         );
         return true;
       } else {
@@ -467,20 +496,16 @@ const CreateDelivery: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    // Final validation before submission
-    if (!validateHotelInfo() || !validateCustomerInfo()) {
+    if (!validateDestination()) {
       toast.error('Please fix all validation errors before submitting');
       return;
     }
     
-    if (!hotelInfo.latitude || !hotelInfo.longitude) {
-      toast.error('Please validate hotel address by clicking the search button');
+    if (!driverLocation) {
+      toast.error('Please validate driver location');
       return;
     }
-    if (!customerInfo.latitude || !customerInfo.longitude) {
-      toast.error('Please validate delivery address by clicking the search button');
-      return;
-    }
+    
     if (items.length === 0) {
       toast.error('Please add at least one stock item');
       return;
@@ -488,19 +513,48 @@ const CreateDelivery: React.FC = () => {
 
     setLoading(true);
     try {
+      // Ensure both hotel and customer have coordinates
+      // For hotel deliveries, we still need customer coordinates (can use hotel coordinates as fallback)
+      const finalHotelInfo = { ...hotelInfo };
+      const finalCustomerInfo = { ...customerInfo };
+      
+      // If customer coordinates are missing, use hotel coordinates as fallback
+      if (!finalCustomerInfo.latitude || !finalCustomerInfo.longitude) {
+        finalCustomerInfo.latitude = hotelInfo.latitude;
+        finalCustomerInfo.longitude = hotelInfo.longitude;
+      }
+      
+      // If hotel coordinates are missing, use customer coordinates as fallback
+      if (!finalHotelInfo.latitude || !finalHotelInfo.longitude) {
+        finalHotelInfo.latitude = customerInfo.latitude;
+        finalHotelInfo.longitude = customerInfo.longitude;
+      }
+      
       const order: DeliveryOrder = {
-        hotel_info: hotelInfo,
-        customer_info: customerInfo,
+        hotel_info: finalHotelInfo,
+        customer_info: finalCustomerInfo,
         items: items,
         order_size: orderSize,
         vehicle_type: selectedVehicle,
         total_weight_kg: totalWeight,
         total_value: totalValue,
+        delivery_type: deliveryType,
       };
       
       const response = await deliveryApi.createDelivery(order);
       if (response.success) {
         toast.success('Delivery order created successfully!');
+        
+        // After order creation, update the driver location
+        if (driverLocation) {
+          await deliveryApi.updateDriverLocation(
+            response.order_id, 
+            driverLocation.lat, 
+            driverLocation.lng
+          );
+          console.log('Driver location saved:', driverLocation);
+        }
+        
         navigate(`/track/${response.order_id}`);
       } else {
         toast.error(response.message || 'Failed to create delivery order');
@@ -536,200 +590,241 @@ const CreateDelivery: React.FC = () => {
             <Grid size={{ xs: 12 }}>
               <Card sx={{ bgcolor: '#FBF3D1', mb: 2 }}>
                 <CardContent>
-                  <Box display="flex" alignItems="center" gap={1} mb={2}>
-                    <RestaurantIcon color="primary" />
-                    <Typography variant="h6">Hotel/Restaurant Information</Typography>
-                  </Box>
-                  <Typography variant="body2" color="textSecondary" gutterBottom>
-                    Enter the hotel or restaurant details where the order is coming from
+                  <Typography variant="h6" gutterBottom>Select Delivery Type</Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Choose where the items will be delivered
                   </Typography>
                 </CardContent>
               </Card>
             </Grid>
             
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="Hotel ID"
-                value={hotelInfo.hotel_id}
-                onChange={(e) => setHotelInfo({ ...hotelInfo, hotel_id: e.target.value })}
-                error={!!errors.hotel.hotel_id}
-                helperText={errors.hotel.hotel_id}
-                required
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="Hotel Name"
-                value={hotelInfo.hotel_name}
-                onChange={(e) => setHotelInfo({ ...hotelInfo, hotel_name: e.target.value })}
-                error={!!errors.hotel.hotel_name}
-                helperText={errors.hotel.hotel_name}
-                required
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="Hotel CONO"
-                value={hotelInfo.hotel_cono}
-                onChange={(e) => setHotelInfo({ ...hotelInfo, hotel_cono: e.target.value.toUpperCase() })}
-                error={!!errors.hotel.hotel_cono}
-                helperText={errors.hotel.hotel_cono || "Format: 3-15 alphanumeric characters"}
-                required
-                inputProps={{ style: { textTransform: 'uppercase' } }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="Phone Number"
-                value={hotelInfo.phone}
-                onChange={(e) => setHotelInfo({ ...hotelInfo, phone: e.target.value })}
-                error={!!errors.hotel.phone}
-                helperText={errors.hotel.phone || "Format: 0712345678 or +94712345678"}
-                required
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PhoneIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
             <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                label="Hotel Address"
-                value={hotelInfo.address}
-                onChange={(e) => setHotelInfo({ ...hotelInfo, address: e.target.value })}
-                error={!!errors.hotel.address}
-                helperText={errors.hotel.address}
-                required
-                multiline
-                rows={2}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <Tooltip title="Search and validate address">
-                        <IconButton 
-                          onClick={handleHotelAddressSearch}
-                          disabled={searchingAddress || !hotelInfo.address}
-                        >
-                          <SearchIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <Typography variant="caption" color="textSecondary">
-                Enter the hotel address and click search to validate
-              </Typography>
+              <FormControl component="fieldset">
+                <FormLabel component="legend">Delivery Destination</FormLabel>
+                <RadioGroup
+                  value={deliveryType}
+                  onChange={(e) => setDeliveryType(e.target.value as DeliveryType)}
+                >
+                  <FormControlLabel 
+                    value={DeliveryType.HOTEL} 
+                    control={<Radio />} 
+                    label={
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <RestaurantIcon color="primary" />
+                        <span>Hotel / Restaurant</span>
+                      </Box>
+                    }
+                  />
+                  <FormControlLabel 
+                    value={DeliveryType.CUSTOMER} 
+                    control={<Radio />} 
+                    label={
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <HomeIcon color="success" />
+                        <span>Regular Customer (Home Delivery)</span>
+                      </Box>
+                    }
+                  />
+                </RadioGroup>
+              </FormControl>
             </Grid>
-            
-            {hotelInfo.latitude && hotelInfo.longitude && (
-              <Grid size={{ xs: 12 }}>
-                <Alert severity="success" icon={<LocationOnIcon />}>
-                  Hotel location validated! Distance will be calculated from this address.
-                  <br />
-                  <strong>Coordinates:</strong> {hotelInfo.latitude.toFixed(6)}, {hotelInfo.longitude.toFixed(6)}
-                </Alert>
-              </Grid>
-            )}
           </Grid>
         );
       
       case 1:
-        return (
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12 }}>
-              <Card sx={{ bgcolor: '#7d1616', mb: 2 }}>
-                <CardContent>
-                  <Box display="flex" alignItems="center" gap={1} mb={2}>
-                    <LocationOnIcon color="warning" />
-                    <Typography variant="h6">Delivery Address</Typography>
-                  </Box>
-                  <Typography variant="body2" color="textSecondary">
-                    Enter the customer's delivery address. We'll calculate distance and estimated time from the hotel.
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="Customer Name"
-                value={customerInfo.name}
-                onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
-                error={!!errors.customer.name}
-                helperText={errors.customer.name}
-                required
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="Customer Phone"
-                value={customerInfo.phone}
-                onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
-                error={!!errors.customer.phone}
-                helperText={errors.customer.phone || "Format: 0712345678 or +94712345678"}
-                required
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PhoneIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                label="Delivery Address"
-                value={customerInfo.address}
-                onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
-                error={!!errors.customer.address}
-                helperText={errors.customer.address}
-                required
-                multiline
-                rows={2}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <Tooltip title="Search and validate address">
-                        <IconButton 
-                          onClick={handleCustomerAddressSearch}
-                          disabled={searchingAddress || !customerInfo.address}
-                        >
-                          <SearchIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <Typography variant="caption" color="textSecondary">
-                Enter the full delivery address and click the search icon to validate
-              </Typography>
-            </Grid>
-            
-            {customerInfo.latitude && customerInfo.longitude && (
+        if (deliveryType === DeliveryType.HOTEL) {
+          return (
+            <Grid container spacing={2}>
               <Grid size={{ xs: 12 }}>
-                <Alert severity="success" icon={<LocationOnIcon />}>
-                  Delivery address validated! Distance will be calculated from the hotel.
-                  <br />
-                  <strong>Coordinates:</strong> {customerInfo.latitude.toFixed(6)}, {customerInfo.longitude.toFixed(6)}
-                </Alert>
+                <Card sx={{ bgcolor: '#FBF3D1', mb: 2 }}>
+                  <CardContent>
+                    <Box display="flex" alignItems="center" gap={1} mb={2}>
+                      <RestaurantIcon color="primary" />
+                      <Typography variant="h6">Hotel/Restaurant Details</Typography>
+                    </Box>
+                    <Typography variant="body2" color="textSecondary">
+                      Enter the hotel or restaurant details where the items will be delivered
+                    </Typography>
+                  </CardContent>
+                </Card>
               </Grid>
-            )}
-          </Grid>
-        );
+              
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Hotel ID"
+                  value={hotelInfo.hotel_id}
+                  onChange={(e) => setHotelInfo({ ...hotelInfo, hotel_id: e.target.value })}
+                  error={!!errors.hotel.hotel_id}
+                  helperText={errors.hotel.hotel_id}
+                  required
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Hotel Name"
+                  value={hotelInfo.hotel_name}
+                  onChange={(e) => setHotelInfo({ ...hotelInfo, hotel_name: e.target.value })}
+                  error={!!errors.hotel.hotel_name}
+                  helperText={errors.hotel.hotel_name}
+                  required
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Hotel CONO"
+                  value={hotelInfo.hotel_cono}
+                  onChange={(e) => setHotelInfo({ ...hotelInfo, hotel_cono: e.target.value.toUpperCase() })}
+                  error={!!errors.hotel.hotel_cono}
+                  helperText={errors.hotel.hotel_cono || "Format: 3-15 alphanumeric characters"}
+                  required
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Phone Number"
+                  value={hotelInfo.phone}
+                  onChange={(e) => setHotelInfo({ ...hotelInfo, phone: e.target.value })}
+                  error={!!errors.hotel.phone}
+                  helperText={errors.hotel.phone || "Format: 0712345678 or +94712345678"}
+                  required
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <PhoneIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  fullWidth
+                  label="Hotel Address"
+                  value={hotelInfo.address}
+                  onChange={(e) => setHotelInfo({ ...hotelInfo, address: e.target.value })}
+                  error={!!errors.hotel.address}
+                  helperText={errors.hotel.address}
+                  required
+                  multiline
+                  rows={2}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Tooltip title="Search and validate address">
+                          <IconButton 
+                            onClick={() => handleAddressSearch(hotelInfo.address, 'hotel')}
+                            disabled={searchingAddress || !hotelInfo.address}
+                          >
+                            <SearchIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              
+              {hotelInfo.latitude && hotelInfo.longitude && (
+                <Grid size={{ xs: 12 }}>
+                  <Alert severity="success" icon={<LocationOnIcon />}>
+                    Hotel location validated! Distance will be calculated from driver to this location.
+                    <br />
+                    <strong>Coordinates:</strong> {hotelInfo.latitude.toFixed(6)}, {hotelInfo.longitude.toFixed(6)}
+                  </Alert>
+                </Grid>
+              )}
+            </Grid>
+          );
+        } else {
+          return (
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12 }}>
+                <Card sx={{ bgcolor: '#7d1616', mb: 2 }}>
+                  <CardContent>
+                    <Box display="flex" alignItems="center" gap={1} mb={2}>
+                      <HomeIcon color="warning" />
+                      <Typography variant="h6">Customer Details</Typography>
+                    </Box>
+                    <Typography variant="body2" color="textSecondary">
+                      Enter the customer's details for home delivery
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Customer Name"
+                  value={customerInfo.name}
+                  onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
+                  error={!!errors.customer.name}
+                  helperText={errors.customer.name}
+                  required
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Customer Phone"
+                  value={customerInfo.phone}
+                  onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
+                  error={!!errors.customer.phone}
+                  helperText={errors.customer.phone || "Format: 0712345678 or +94712345678"}
+                  required
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <PhoneIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  fullWidth
+                  label="Delivery Address"
+                  value={customerInfo.address}
+                  onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
+                  error={!!errors.customer.address}
+                  helperText={errors.customer.address}
+                  required
+                  multiline
+                  rows={2}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Tooltip title="Search and validate address">
+                          <IconButton 
+                            onClick={() => handleAddressSearch(customerInfo.address, 'customer')}
+                            disabled={searchingAddress || !customerInfo.address}
+                          >
+                            <SearchIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              
+              {customerInfo.latitude && customerInfo.longitude && (
+                <Grid size={{ xs: 12 }}>
+                  <Alert severity="success" icon={<LocationOnIcon />}>
+                    Customer location validated! Distance will be calculated from driver to this location.
+                    <br />
+                    <strong>Coordinates:</strong> {customerInfo.latitude.toFixed(6)}, {customerInfo.longitude.toFixed(6)}
+                  </Alert>
+                </Grid>
+              )}
+            </Grid>
+          );
+        }
       
       case 2:
         return (
@@ -750,9 +845,7 @@ const CreateDelivery: React.FC = () => {
             
             <Grid size={{ xs: 12 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="subtitle1">
-                  Items ({items.length})
-                </Typography>
+                <Typography variant="subtitle1">Items ({items.length})</Typography>
                 <Button
                   variant="outlined"
                   startIcon={<AddIcon />}
@@ -798,15 +891,11 @@ const CreateDelivery: React.FC = () => {
               <Box sx={{ mt: 2, p: 2, bgcolor: '#FBF3D1', borderRadius: 1 }}>
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 6 }}>
-                    <Typography variant="body2" color="textSecondary">
-                      Total Weight
-                    </Typography>
+                    <Typography variant="body2" color="textSecondary">Total Weight</Typography>
                     <Typography variant="h6">{totalWeight.toFixed(2)} kg</Typography>
                   </Grid>
                   <Grid size={{ xs: 6 }}>
-                    <Typography variant="body2" color="textSecondary">
-                      Total Value
-                    </Typography>
+                    <Typography variant="body2" color="textSecondary">Total Value</Typography>
                     <Typography variant="h6">{formatCurrency(totalValue)}</Typography>
                   </Grid>
                 </Grid>
@@ -818,6 +907,56 @@ const CreateDelivery: React.FC = () => {
       case 3:
         return (
           <Grid container spacing={2}>
+            <Grid size={{ xs: 12 }}>
+              <Card sx={{ bgcolor: '#E3F2FD', mb: 2 }}>
+                <CardContent>
+                  <Box display="flex" alignItems="center" gap={1} mb={2}>
+                    <MyLocationIcon color="primary" />
+                    <Typography variant="h6">Driver Current Location</Typography>
+                  </Box>
+                  <Typography variant="body2" color="textSecondary" gutterBottom>
+                    Enter the driver's current location to calculate distance to the destination
+                  </Typography>
+                  
+                  <TextField
+                    fullWidth
+                    label="Driver Current Address"
+                    value={driverAddress}
+                    onChange={(e) => setDriverAddress(e.target.value)}
+                    placeholder="Enter driver's current location"
+                    required
+                    multiline
+                    rows={2}
+                    sx={{ mt: 1 }}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <Tooltip title={!driverAddress ? "Please enter an address first" : "Search and validate driver location"}>
+                            <span>
+                              <IconButton 
+                                onClick={handleDriverAddressSearch}
+                                disabled={searchingDriverAddress || !driverAddress}
+                              >
+                                <SearchIcon />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  
+                  {driverLocation && (
+                    <Alert severity="success" sx={{ mt: 2 }}>
+                      Driver location validated! Distance will be calculated from this address.
+                      <br />
+                      <strong>Coordinates:</strong> {driverLocation.lat.toFixed(6)}, {driverLocation.lng.toFixed(6)}
+                    </Alert>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+            
             <Grid size={{ xs: 12 }}>
               <FormControl fullWidth>
                 <InputLabel>Order Size</InputLabel>
@@ -845,15 +984,7 @@ const CreateDelivery: React.FC = () => {
               />
             </Grid>
 
-            {(!hotelInfo.latitude || !customerInfo.latitude) && (
-              <Grid size={{ xs: 12 }}>
-                <Alert severity="warning">
-                  Please ensure both hotel and delivery addresses are validated.
-                </Alert>
-              </Grid>
-            )}
-
-            {hotelInfo.latitude && customerInfo.latitude && !estimate && (
+            {driverLocation && ((deliveryType === DeliveryType.HOTEL && hotelInfo.latitude) || (deliveryType === DeliveryType.CUSTOMER && customerInfo.latitude)) && !estimate && (
               <Grid size={{ xs: 12 }}>
                 <Button
                   variant="contained"
@@ -876,7 +1007,9 @@ const CreateDelivery: React.FC = () => {
                   
                   <Grid container spacing={2}>
                     <Grid size={{ xs: 12, md: 4 }}>
-                      <Typography variant="body2" color="textSecondary">Distance from Hotel</Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        Distance from Driver to {deliveryType === DeliveryType.HOTEL ? 'Hotel' : 'Customer'}
+                      </Typography>
                       <Typography variant="h6">{estimate.distance_km} km</Typography>
                     </Grid>
                     <Grid size={{ xs: 12, md: 4 }}>
@@ -971,31 +1104,52 @@ const CreateDelivery: React.FC = () => {
             
             <Paper sx={{ p: 2, mb: 2, bgcolor: '#E3F2FD' }}>
               <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-                <RestaurantIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                Hotel/Restaurant (Pickup Point)
-              </Typography>
-              <Typography>ID: {hotelInfo.hotel_id}</Typography>
-              <Typography>Name: {hotelInfo.hotel_name}</Typography>
-              <Typography>CONO: {hotelInfo.hotel_cono}</Typography>
-              <Typography>Phone: {hotelInfo.phone}</Typography>
-              <Typography>Address: {hotelInfo.address}</Typography>
-              <Typography variant="caption" color="textSecondary">
-                Location: {hotelInfo.latitude?.toFixed(6)}, {hotelInfo.longitude?.toFixed(6)}
+                Delivery Type: {deliveryType === DeliveryType.HOTEL ? 'Hotel/Restaurant Delivery' : 'Customer Home Delivery'}
               </Typography>
             </Paper>
 
-            <Paper sx={{ p: 2, mb: 2, bgcolor: '#FFF9C4' }}>
-              <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-                <LocationOnIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                Delivery Address
-              </Typography>
-              <Typography>Name: {customerInfo.name}</Typography>
-              <Typography>Phone: {customerInfo.phone}</Typography>
-              <Typography>Address: {customerInfo.address}</Typography>
-              <Typography variant="caption" color="textSecondary">
-                Location: {customerInfo.latitude?.toFixed(6)}, {customerInfo.longitude?.toFixed(6)}
-              </Typography>
-            </Paper>
+            {deliveryType === DeliveryType.HOTEL ? (
+              <Paper sx={{ p: 2, mb: 2, bgcolor: '#FFF9C4' }}>
+                <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+                  <RestaurantIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                  Hotel/Restaurant Details
+                </Typography>
+                <Typography>ID: {hotelInfo.hotel_id}</Typography>
+                <Typography>Name: {hotelInfo.hotel_name}</Typography>
+                <Typography>CONO: {hotelInfo.hotel_cono}</Typography>
+                <Typography>Phone: {hotelInfo.phone}</Typography>
+                <Typography>Address: {hotelInfo.address}</Typography>
+                <Typography variant="caption" color="textSecondary">
+                  Location: {hotelInfo.latitude?.toFixed(6)}, {hotelInfo.longitude?.toFixed(6)}
+                </Typography>
+              </Paper>
+            ) : (
+              <Paper sx={{ p: 2, mb: 2, bgcolor: '#FFF9C4' }}>
+                <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+                  <HomeIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                  Customer Details
+                </Typography>
+                <Typography>Name: {customerInfo.name}</Typography>
+                <Typography>Phone: {customerInfo.phone}</Typography>
+                <Typography>Address: {customerInfo.address}</Typography>
+                <Typography variant="caption" color="textSecondary">
+                  Location: {customerInfo.latitude?.toFixed(6)}, {customerInfo.longitude?.toFixed(6)}
+                </Typography>
+              </Paper>
+            )}
+
+            {driverLocation && (
+              <Paper sx={{ p: 2, mb: 2, bgcolor: '#E8F5E9' }}>
+                <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+                  <MyLocationIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                  Driver Current Location
+                </Typography>
+                <Typography>Address: {driverAddress}</Typography>
+                <Typography variant="caption" color="textSecondary">
+                  Location: {driverLocation.lat.toFixed(6)}, {driverLocation.lng.toFixed(6)}
+                </Typography>
+              </Paper>
+            )}
 
             <Paper sx={{ p: 2, mb: 2 }}>
               <Typography variant="subtitle1" gutterBottom fontWeight="bold">
@@ -1030,7 +1184,7 @@ const CreateDelivery: React.FC = () => {
               {estimate && (
                 <>
                   <Typography sx={{ mt: 1 }}>
-                    <strong>Distance from Hotel:</strong> {estimate.distance_km} km
+                    <strong>Distance from Driver to {deliveryType === DeliveryType.HOTEL ? 'Hotel' : 'Customer'}:</strong> {estimate.distance_km} km
                   </Typography>
                   <Typography>
                     <strong>Estimated Delivery Time:</strong> {formatEstimatedTime(estimate.estimated_minutes)}
@@ -1041,33 +1195,9 @@ const CreateDelivery: React.FC = () => {
                   <Typography>
                     <strong>Recommended Vehicle:</strong> {estimate.recommended_vehicle?.toUpperCase()}
                   </Typography>
-                  
-                  <Divider sx={{ my: 1 }} />
-                  
-                  <Typography variant="caption" display="block" color="textSecondary">
-                    Breakdown: Processing ({estimate.breakdown?.order_processing}) + 
-                    Warehouse ({estimate.breakdown?.warehouse_queue}) + 
-                    Travel ({estimate.breakdown?.travel_time})
-                  </Typography>
-                  {estimate.breakdown?.is_peak_hour && (
-                    <Typography variant="caption" display="block" color="warning.main">
-                      ⚠️ Peak hour delivery - additional processing time
-                    </Typography>
-                  )}
-                  {estimate.breakdown?.is_weekend && (
-                    <Typography variant="caption" display="block" color="info.main">
-                      📅 Weekend delivery - slight delay expected
-                    </Typography>
-                  )}
                 </>
               )}
             </Paper>
-
-            {(!hotelInfo.latitude || !customerInfo.latitude) && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                Missing location data! Please ensure both hotel and delivery addresses are validated.
-              </Alert>
-            )}
           </Box>
         );
       
@@ -1076,7 +1206,6 @@ const CreateDelivery: React.FC = () => {
     }
   };
 
-  // Geocoding service function (moved outside or keep inside component)
   const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number } | null> => {
     try {
       const response = await fetch(
@@ -1104,7 +1233,7 @@ const CreateDelivery: React.FC = () => {
           Create New Delivery Order
         </Typography>
         <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-          Enter the hotel/restaurant details, customer delivery address, and stock items
+          Enter delivery details - distance will be calculated from driver's current location
         </Typography>
 
         <Stepper activeStep={activeStep} sx={{ my: 4 }}>

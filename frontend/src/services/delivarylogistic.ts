@@ -22,7 +22,7 @@ const api = axios.create({
 // Optional: Add interceptors for debugging
 api.interceptors.request.use(
   (config) => {
-    console.log(` API Request: ${config.method?.toUpperCase()} ${config.url}`);
+    console.log(`📤 API Request: ${config.method?.toUpperCase()} ${config.url}`);
     return config;
   },
   (error) => {
@@ -33,11 +33,11 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => {
-    console.log(` API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, response.data);
+    console.log(`📥 API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, response.data);
     return response;
   },
   (error) => {
-    console.error(` API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`, error.response?.data);
+    console.error(`❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`, error.response?.data);
     return Promise.reject(error);
   }
 );
@@ -179,11 +179,68 @@ export const deliveryApi = {
 
   // ==================== ESTIMATES & CALCULATIONS ====================
   
-  calculateDetailedEstimate: async (order: DeliveryOrder) => {
-    const response = await api.post('/delivery/orders/calculate-detailed', order);
-    return response.data;
+  /**
+   * Calculate detailed delivery estimate with driver location and destination type
+   * @param data - Can be DeliveryOrder or extended object with driver_location and destination_type
+   */
+  calculateDetailedEstimate: async (data: any): Promise<any> => {
+    try {
+      // Check if driver location is provided
+      const hasDriverLocation = data.driver_location && 
+                                 data.driver_location.latitude && 
+                                 data.driver_location.longitude;
+      
+      // Check if destination type is provided
+      const hasDestinationType = data.destination_type && 
+                                  (data.destination_type === 'hotel' || data.destination_type === 'customer');
+      
+      // Prepare request body
+      const requestBody: any = {
+        hotel_info: data.hotel_info,
+        customer_info: data.customer_info,
+        items: data.items,
+        order_size: data.order_size,
+      };
+      
+      // Add driver location if provided
+      if (hasDriverLocation) {
+        requestBody.driver_location = {
+          latitude: data.driver_location.latitude,
+          longitude: data.driver_location.longitude
+        };
+      }
+      
+      // Add destination type if provided
+      if (hasDestinationType) {
+        requestBody.destination_type = data.destination_type;
+      }
+      
+      // Add destination coordinates if provided
+      if (data.destination_coordinates) {
+        requestBody.destination_coordinates = {
+          latitude: data.destination_coordinates.latitude,
+          longitude: data.destination_coordinates.longitude
+        };
+      }
+      
+      console.log('📊 Calculating detailed estimate with:', {
+        hasDriverLocation,
+        hasDestinationType,
+        driverLocation: hasDriverLocation ? requestBody.driver_location : null,
+        destinationType: hasDestinationType ? requestBody.destination_type : null
+      });
+      
+      const response = await api.post('/delivery/orders/calculate-detailed', requestBody);
+      return response.data;
+    } catch (error) {
+      console.error('Error calculating detailed estimate:', error);
+      throw error;
+    }
   },
 
+  /**
+   * Calculate delivery estimate from hotel to customer (legacy method)
+   */
   calculateEstimate: async (order: DeliveryOrder) => {
     const response = await api.post('/delivery/orders/calculate', order);
     return response.data;

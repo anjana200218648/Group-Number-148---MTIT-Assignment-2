@@ -190,18 +190,46 @@ class DeliveryService:
                 order.order_size = self.determine_order_size(total_weight)
                 logger.info(f"Auto-determined order size: {order.order_size}")
             
-            # Calculate distance if coordinates available
-            if (order.hotel_info.latitude and order.hotel_info.longitude and 
-                order.customer_info.latitude and order.customer_info.longitude):
-                
-                distance = self.calculate_distance(
-                    order.hotel_info.latitude, order.hotel_info.longitude,
-                    order.customer_info.latitude, order.customer_info.longitude
-                )
-                order.distance_km = distance
-                logger.info(f"Distance calculated: {distance} km")
-                
-                # Calculate estimated delivery time
+            # Get delivery type - handle both string and enum
+            delivery_type_value = None
+            if order.delivery_type:
+                if hasattr(order.delivery_type, 'value'):
+                    delivery_type_value = order.delivery_type.value
+                else:
+                    delivery_type_value = str(order.delivery_type)
+            else:
+                delivery_type_value = 'customer'  # Default to customer delivery
+            
+            logger.info(f"Delivery type: {delivery_type_value}")
+            
+            # Calculate distance based on delivery type
+            distance = 0
+            if delivery_type_value == 'hotel':
+                # For hotel deliveries, we still need coordinates for reference
+                if order.hotel_info.latitude and order.hotel_info.longitude:
+                    # Set distance to 0 initially - will be calculated when driver location is set
+                    distance = 0
+                    logger.info(f"Hotel delivery - coordinates available, distance will be calculated dynamically")
+                else:
+                    logger.warning(f"Hotel delivery but hotel coordinates missing")
+            else:
+                # For customer deliveries, calculate distance between hotel and customer
+                if (order.hotel_info.latitude and order.hotel_info.longitude and 
+                    order.customer_info.latitude and order.customer_info.longitude):
+                    
+                    distance = self.calculate_distance(
+                        order.hotel_info.latitude, order.hotel_info.longitude,
+                        order.customer_info.latitude, order.customer_info.longitude
+                    )
+                    logger.info(f"Customer delivery - distance calculated: {distance} km")
+                else:
+                    logger.warning(f"Customer delivery but coordinates missing")
+                    distance = 0
+            
+            order.distance_km = distance
+            
+            # Calculate estimated delivery time if distance > 0
+            if distance > 0:
                 processing_time = {OrderSize.SMALL: 10, OrderSize.MEDIUM: 15, 
                                    OrderSize.LARGE: 20, OrderSize.EXTRA_LARGE: 30}.get(order.order_size, 15)
                 travel_time = (distance / 30) * 60
@@ -226,6 +254,10 @@ class DeliveryService:
             # Convert to dictionary for storage
             order_dict = order.dict()
             
+            # Ensure delivery_type is stored as string
+            order_dict["delivery_type"] = delivery_type_value
+            order_dict["distance_km"] = distance
+            
             # Convert datetime objects to strings for JSON serialization
             if order_dict.get("estimated_delivery_time"):
                 if hasattr(order_dict["estimated_delivery_time"], 'isoformat'):
@@ -243,6 +275,26 @@ class DeliveryService:
             await doc_ref.set(order_dict)
             logger.info(f"Saved to database: {order.order_id}")
             
+            # CREATE INITIAL DRIVER LOCATION (starting at hotel location)
+            # Use hotel coordinates as starting point
+            initial_lat = order.hotel_info.latitude or 6.9271  # Default Colombo coordinates
+            initial_lng = order.hotel_info.longitude or 79.8612
+            
+            initial_location = {
+                "order_id": order.order_id,
+                "latitude": initial_lat,
+                "longitude": initial_lng,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # Store initial driver location
+            try:
+                loc_doc_ref = self.db.collection(self.location_collection).document(order.order_id)
+                await loc_doc_ref.set(initial_location)
+                logger.info(f"Initial driver location created for order {order.order_id}: ({initial_lat}, {initial_lng})")
+            except Exception as loc_err:
+                logger.error(f"Error creating initial location: {loc_err}")
+            
             return {
                 "success": True,
                 "order_id": order.order_id,
@@ -254,6 +306,120 @@ class DeliveryService:
             logger.error(f"Error creating delivery: {e}")
             import traceback
             traceback.print_exc()
+            return {"success": False, "message": str(e)}
+    
+    async def update_delivery_distance(self, order_id: str) -> dict:
+        """Update delivery distance based on current driver location"""
+        try:
+            # Get order data
+            result = await self.get_delivery(order_id)
+            if not result["success"]:
+                return result
+            
+            order_data = result["data"]
+            
+            # Get driver location
+            loc_doc = await self.db.collection(self.location_collection).document(order_id).get()
+            if not loc_doc.exists():
+                return {"success": False, "message": "Driver location not available"}
+            
+            driver_loc = loc_doc.to_dict()
+            
+            delivery_type = order_data.get("delivery_type", "customer")
+            
+            # Determine destination based on delivery type and status
+            if delivery_type == "hotel":
+                dest_lat = order_data.get("hotel_info", {}).get("latitude")
+                dest_lng = order_data.get("hotel_info", {}).get("longitude")
+            else:
+                current_status = order_data.get("status", "")
+                if current_status in ["assigned", "pickup", "en_route_to_pickup", "pending"]:
+                    dest_lat = order_data.get("hotel_info", {}).get("latitude")
+                    dest_lng = order_data.get("hotel_info", {}).get("longitude")
+                else:
+                    dest_lat = order_data.get("customer_info", {}).get("latitude")
+                    dest_lng = order_data.get("customer_info", {}).get("longitude")
+            
+            if not dest_lat or not dest_lng:
+                return {"success": False, "message": "Destination coordinates not available"}
+            
+            # Calculate distance
+            distance = self.calculate_distance(
+                driver_loc.get("latitude"),
+                driver_loc.get("longitude"),
+                dest_lat,
+                dest_lng
+            )
+            
+            # Update order with new distance
+            order_data["distance_km"] = distance
+            self.deliveries_cache[order_id] = order_data
+            
+            # Update database
+            doc_ref = self.db.collection(self.collection_name).document(order_id)
+            await doc_ref.update({"distance_km": distance})
+            
+            logger.info(f"Updated distance for order {order_id}: {distance} km")
+            
+            return {"success": True, "distance_km": distance}
+        except Exception as e:
+            logger.error(f"Error updating delivery distance: {e}")
+            return {"success": False, "message": str(e)}
+    
+    async def calculate_distance_from_driver(self, order_id: str) -> dict:
+        """Calculate distance from driver location to destination"""
+        try:
+            order_result = await self.get_delivery(order_id)
+            if not order_result["success"]:
+                return order_result
+            
+            order_data = order_result["data"]
+            
+            # Get driver location
+            loc_doc = await self.db.collection(self.location_collection).document(order_id).get()
+            if not loc_doc.exists():
+                return {"success": False, "message": "Driver location not available"}
+            
+            driver_loc = loc_doc.to_dict()
+            
+            delivery_type = order_data.get("delivery_type", "customer")
+            
+            if delivery_type == "hotel":
+                dest_lat = order_data.get("hotel_info", {}).get("latitude")
+                dest_lng = order_data.get("hotel_info", {}).get("longitude")
+            else:
+                # For customer deliveries, check status
+                current_status = order_data.get("status", "")
+                if current_status in ["assigned", "pickup", "en_route_to_pickup", "pending"]:
+                    dest_lat = order_data.get("hotel_info", {}).get("latitude")
+                    dest_lng = order_data.get("hotel_info", {}).get("longitude")
+                else:
+                    dest_lat = order_data.get("customer_info", {}).get("latitude")
+                    dest_lng = order_data.get("customer_info", {}).get("longitude")
+            
+            if dest_lat and dest_lng:
+                distance = self.calculate_distance(
+                    driver_loc.get("latitude"),
+                    driver_loc.get("longitude"),
+                    dest_lat,
+                    dest_lng
+                )
+                
+                # Update order with new distance
+                order_data["distance_km"] = distance
+                self.deliveries_cache[order_id] = order_data
+                
+                # Update database
+                doc_ref = self.db.collection(self.collection_name).document(order_id)
+                await doc_ref.update({"distance_km": distance})
+                
+                logger.info(f"Calculated distance from driver for order {order_id}: {distance} km")
+                
+                return {"success": True, "distance_km": distance}
+            
+            return {"success": False, "message": "Destination coordinates not available"}
+        except Exception as e:
+            logger.error(f"Error calculating distance from driver: {e}")
             return {"success": False, "message": str(e)}
     
     async def get_delivery(self, order_id: str) -> dict:
@@ -270,6 +436,15 @@ class DeliveryService:
             doc = await self.db.collection(self.collection_name).document(order_id).get()
             if doc.exists():
                 data = doc.to_dict()
+                # Ensure all required fields are present
+                if "delivery_type" not in data:
+                    data["delivery_type"] = "customer"
+                if "distance_km" not in data:
+                    data["distance_km"] = 0
+                if "hotel_info" not in data:
+                    data["hotel_info"] = {}
+                if "customer_info" not in data:
+                    data["customer_info"] = {}
                 # Update cache
                 self.deliveries_cache[order_id] = data
                 logger.info(f"Found in database: {order_id}")
@@ -315,6 +490,10 @@ class DeliveryService:
             if order_id in self.deliveries_cache:
                 self.deliveries_cache[order_id].update(update_data)
             
+            # After status update, recalculate distance if needed
+            if update.status.value in ["picked_up", "out_for_delivery"]:
+                await self.update_delivery_distance(order_id)
+            
             # Broadcast update
             await broadcast_status_update(order_id, {
                 "order_id": order_id,
@@ -348,35 +527,131 @@ class DeliveryService:
                 loc_doc = await self.db.collection(self.location_collection).document(order_id).get()
                 if loc_doc.exists():
                     location_data = loc_doc.to_dict()
-            except:
-                pass
+                    logger.info(f"Location data found for {order_id}: {location_data}")
+                else:
+                    logger.warning(f"No location data found for {order_id}")
+            except Exception as e:
+                logger.error(f"Error getting location: {e}")
+            
+            # Get delivery type from data - handle both string and enum
+            delivery_type = data.get("delivery_type")
+            if isinstance(delivery_type, dict):
+                delivery_type = delivery_type.get("value") or delivery_type.get("_value_")
+            
+            # Ensure delivery_type is set (default to 'customer' for backward compatibility)
+            if not delivery_type:
+                delivery_type = 'customer'
+            
+            # Get hotel and customer info safely
+            hotel_info = data.get("hotel_info", {})
+            customer_info = data.get("customer_info", {})
+            
+            # Get coordinates with proper None handling
+            hotel_lat = hotel_info.get("latitude")
+            hotel_lng = hotel_info.get("longitude")
+            customer_lat = customer_info.get("latitude")
+            customer_lng = customer_info.get("longitude")
+            
+            hotel_location = {
+                "lat": hotel_lat if hotel_lat is not None else None,
+                "lng": hotel_lng if hotel_lng is not None else None
+            }
+            
+            customer_location = {
+                "lat": customer_lat if customer_lat is not None else None,
+                "lng": customer_lng if customer_lng is not None else None
+            }
+            
+            # Get current distance from order data
+            total_distance = data.get("distance_km", 0)
+            if total_distance is None:
+                total_distance = 0
+            
+            # Get current location with proper formatting
+            current_location = None
+            if location_data:
+                current_location = {
+                    "latitude": location_data.get("latitude"),
+                    "longitude": location_data.get("longitude")
+                }
+                logger.info(f"Current location set to: {current_location}")
+            
+            # Get tracking history
+            tracking_history = data.get("tracking_history", [])
             
             tracking_info = {
                 "order_id": order_id,
-                "current_status": data.get("status"),
+                "current_status": data.get("status", "pending"),
                 "estimated_delivery_time": data.get("estimated_delivery_time"),
                 "actual_delivery_time": data.get("actual_delivery_time"),
-                "tracking_history": data.get("tracking_history", []),
-                "hotel_name": data.get("hotel_info", {}).get("hotel_name"),
-                "customer_name": data.get("customer_info", {}).get("name"),
+                "tracking_history": tracking_history,
+                "hotel_name": hotel_info.get("hotel_name", "Hotel"),
+                "customer_name": customer_info.get("name", "Customer"),
                 "vehicle_type": data.get("vehicle_type"),
-                "distance_km": data.get("distance_km"),
-                "hotel_location": {
-                    "lat": data.get("hotel_info", {}).get("latitude"),
-                    "lng": data.get("hotel_info", {}).get("longitude")
-                },
-                "customer_location": {
-                    "lat": data.get("customer_info", {}).get("latitude"),
-                    "lng": data.get("customer_info", {}).get("longitude")
-                },
-                "current_location": {
-                    "lat": location_data.get("latitude") if location_data else None,
-                    "lng": location_data.get("longitude") if location_data else None
-                } if location_data else None
+                "distance_km": total_distance,
+                "delivery_type": delivery_type,
+                "hotel_location": hotel_location,
+                "customer_location": customer_location,
+                "current_location": current_location,
+                "total_distance_km": total_distance
             }
+            
+            # Add real-time ETA if driver location is available
+            if current_location and current_location.get("latitude") and current_location.get("longitude"):
+                # Calculate ETA based on delivery type
+                if delivery_type == 'hotel':
+                    # For hotel deliveries, calculate distance to hotel
+                    dest_lat = hotel_location.get("lat")
+                    dest_lng = hotel_location.get("lng")
+                    eta_description = "hotel"
+                else:
+                    # For customer deliveries, determine current leg
+                    current_status = data.get("status", "")
+                    if current_status in ['assigned', 'pickup', 'en_route_to_pickup', 'pending']:
+                        # Heading to hotel for pickup
+                        dest_lat = hotel_location.get("lat")
+                        dest_lng = hotel_location.get("lng")
+                        eta_description = "pickup"
+                    else:
+                        # Heading to customer
+                        dest_lat = customer_location.get("lat")
+                        dest_lng = customer_location.get("lng")
+                        eta_description = "delivery"
+                
+                if dest_lat and dest_lng:
+                    distance_remaining = self.calculate_distance(
+                        current_location.get("latitude"),
+                        current_location.get("longitude"),
+                        dest_lat,
+                        dest_lng
+                    )
+                    
+                    # Calculate ETA (assuming 30 km/h average speed)
+                    eta_minutes = int((distance_remaining / 30) * 60)
+                    
+                    # Calculate progress percentage
+                    if total_distance > 0:
+                        progress = ((total_distance - distance_remaining) / total_distance) * 100
+                        if progress < 0:
+                            progress = 0
+                        elif progress > 100:
+                            progress = 100
+                    else:
+                        progress = 0
+                    
+                    tracking_info["realtime_eta"] = {
+                        "distance_remaining_km": round(distance_remaining, 2),
+                        "eta_minutes": eta_minutes,
+                        "progress_percentage": round(progress, 2),
+                        "is_approaching": distance_remaining < 0.5,
+                        "description": eta_description
+                    }
+            
             return {"success": True, "data": tracking_info}
         except Exception as e:
             logger.error(f"Error tracking delivery: {e}")
+            import traceback
+            traceback.print_exc()
             return {"success": False, "message": str(e)}
     
     async def track_delivery_with_location(self, order_id: str) -> dict:
@@ -386,14 +661,28 @@ class DeliveryService:
         try:
             logger.info(f"Updating location for order {order_id}: ({lat}, {lng})")
             
+            # Check if location document exists
+            doc_ref = self.db.collection(self.location_collection).document(order_id)
+            existing_doc = await doc_ref.get()
+            
             location_data = {
                 "order_id": order_id,
                 "latitude": lat,
                 "longitude": lng,
                 "timestamp": datetime.now().isoformat()
             }
-            await self.db.collection(self.location_collection).document(order_id).set(location_data)
-            return {"success": True, "message": "Location updated"}
+            
+            if existing_doc.exists():
+                await doc_ref.update(location_data)
+                logger.info(f"Updated location for order {order_id}")
+            else:
+                await doc_ref.set(location_data)
+                logger.info(f"Created location for order {order_id}")
+            
+            # After updating driver location, recalculate distance
+            await self.update_delivery_distance(order_id)
+            
+            return {"success": True, "message": "Location updated", "data": location_data}
         except Exception as e:
             logger.error(f"Error updating location: {e}")
             return {"success": False, "message": str(e)}
@@ -460,9 +749,10 @@ class DeliveryService:
             return {"success": True, "data": hotel_deliveries}
         except Exception as e:
             logger.error(f"Error getting hotel deliveries: {e}")
-            return {"success": False, "message": str(e)}
+            return {"success": False, "message": str(e), "data": []}
     
     async def get_all_deliveries(self, limit: Optional[int] = None) -> dict:
+        """Get all deliveries across all hotels"""
         try:
             all_deliveries = list(self.deliveries_cache.values())
             
@@ -475,7 +765,9 @@ class DeliveryService:
             return {"success": True, "data": all_deliveries}
         except Exception as e:
             logger.error(f"Error getting all deliveries: {e}")
-            return {"success": False, "message": str(e)}
+            import traceback
+            traceback.print_exc()
+            return {"success": False, "message": str(e), "data": []}
     
     async def delete_delivery(self, order_id: str) -> dict:
         try:
@@ -491,8 +783,104 @@ class DeliveryService:
             logger.error(f"Error deleting delivery: {e}")
             return {"success": False, "message": str(e)}
     
+    async def calculate_detailed_estimate_with_driver(
+        self, 
+        order: DeliveryOrder, 
+        driver_latitude: float, 
+        driver_longitude: float,
+        destination_type: str = "hotel"
+    ) -> dict:
+        """Calculate detailed delivery estimate from driver location to destination"""
+        try:
+            # Determine start point (driver location)
+            start_lat = driver_latitude
+            start_lng = driver_longitude
+            
+            # Determine end point based on destination type
+            if destination_type == "hotel":
+                if not order.hotel_info.latitude or not order.hotel_info.longitude:
+                    return {"success": False, "message": "Hotel coordinates required for calculation"}
+                end_lat = order.hotel_info.latitude
+                end_lng = order.hotel_info.longitude
+                calculation_type = "driver_to_hotel"
+            elif destination_type == "customer":
+                if not order.customer_info.latitude or not order.customer_info.longitude:
+                    return {"success": False, "message": "Customer coordinates required for calculation"}
+                end_lat = order.customer_info.latitude
+                end_lng = order.customer_info.longitude
+                calculation_type = "driver_to_customer"
+            else:
+                return {"success": False, "message": "Invalid destination type. Must be 'hotel' or 'customer'"}
+            
+            # Calculate distance
+            distance = self.calculate_distance(start_lat, start_lng, end_lat, end_lng)
+            
+            # Get vehicle requirements
+            vehicle_req = VehicleAssignmentService.get_vehicle_for_order_size(order.order_size)
+            
+            # Calculate processing time based on order size
+            processing_times = {
+                OrderSize.SMALL: 10,
+                OrderSize.MEDIUM: 15,
+                OrderSize.LARGE: 20,
+                OrderSize.EXTRA_LARGE: 30
+            }
+            processing_time = processing_times.get(order.order_size, 15)
+            
+            # Calculate travel time based on distance (average speed 30 km/h)
+            travel_time = (distance / 30) * 60
+            
+            # Determine if it's peak hour
+            current_hour = datetime.now().hour
+            is_peak_hour = current_hour in self.PEAK_HOURS
+            
+            # Determine if it's weekend
+            is_weekend = datetime.now().weekday() >= 5
+            
+            # Traffic and weather multipliers
+            traffic_multiplier = 1.2 if is_peak_hour else 1.0
+            weather_multiplier = 1.0
+            
+            # Apply multipliers
+            adjusted_travel_time = travel_time * traffic_multiplier * weather_multiplier
+            
+            # Calculate total minutes
+            total_minutes = processing_time + adjusted_travel_time
+            
+            # Calculate estimated delivery time
+            estimated_delivery_time = datetime.now() + timedelta(minutes=total_minutes)
+            
+            # Prepare detailed breakdown
+            breakdown = {
+                "order_processing": f"{processing_time} min",
+                "warehouse_queue": "5 min",
+                "travel_time": f"{int(travel_time)} min",
+                "traffic_multiplier": traffic_multiplier,
+                "weather_multiplier": weather_multiplier,
+                "is_peak_hour": is_peak_hour,
+                "is_weekend": is_weekend,
+                "adjusted_travel_time": f"{int(adjusted_travel_time)} min"
+            }
+            
+            return {
+                "success": True,
+                "data": {
+                    "distance_km": round(distance, 2),
+                    "recommended_vehicle": vehicle_req.recommended_vehicle.value if vehicle_req else None,
+                    "estimated_delivery_time": estimated_delivery_time.isoformat(),
+                    "estimated_minutes": int(total_minutes),
+                    "breakdown": breakdown,
+                    "calculation_type": calculation_type
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error calculating detailed estimate with driver: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"success": False, "message": str(e)}
+    
     async def calculate_detailed_estimate(self, order: DeliveryOrder) -> dict:
-        """Calculate detailed delivery estimate"""
+        """Calculate detailed delivery estimate from hotel to customer"""
         try:
             if not order.hotel_info.latitude or not order.hotel_info.longitude:
                 return {"success": False, "message": "Hotel coordinates required"}
@@ -555,10 +943,11 @@ class DeliveryService:
                 "success": True,
                 "data": {
                     "distance_km": round(distance, 2),
-                    "recommended_vehicle": vehicle_req.recommended_vehicle if vehicle_req else None,
+                    "recommended_vehicle": vehicle_req.recommended_vehicle.value if vehicle_req else None,
                     "estimated_delivery_time": estimated_delivery_time.isoformat(),
                     "estimated_minutes": int(total_minutes),
-                    "breakdown": breakdown
+                    "breakdown": breakdown,
+                    "calculation_type": "hotel_to_customer"
                 }
             }
         except Exception as e:
@@ -569,6 +958,7 @@ class DeliveryService:
         return await self.calculate_detailed_estimate(order)
     
     async def get_delivery_statistics(self, hotel_id: Optional[str] = None) -> dict:
+        """Get delivery statistics"""
         try:
             deliveries = list(self.deliveries_cache.values())
             
@@ -597,16 +987,20 @@ class DeliveryService:
             
             avg_delivery_time = total_delivery_time / len(completed_deliveries) if completed_deliveries else 0
             
-            # Calculate total distance
-            total_distance = sum(d.get("distance_km", 0) for d in deliveries)
+            # Calculate total distance - FIX: Handle None values
+            total_distance = 0
+            for d in deliveries:
+                distance = d.get("distance_km")
+                if distance is not None:
+                    total_distance += distance
             
             return {
                 "success": True,
                 "data": {
                     "total_deliveries": total_deliveries,
                     "status_breakdown": status_breakdown,
-                    "average_delivery_time_minutes": avg_delivery_time,
-                    "total_distance_km": total_distance,
+                    "average_delivery_time_minutes": round(avg_delivery_time, 2),
+                    "total_distance_km": round(total_distance, 2),
                     "on_time_delivery_rate": 0,
                     "average_driver_rating": 0,
                     "total_revenue": 0,
@@ -616,7 +1010,23 @@ class DeliveryService:
             }
         except Exception as e:
             logger.error(f"Error getting statistics: {e}")
-            return {"success": False, "message": str(e)}
+            import traceback
+            traceback.print_exc()
+            return {
+                "success": False, 
+                "message": str(e),
+                "data": {
+                    "total_deliveries": 0,
+                    "status_breakdown": {},
+                    "average_delivery_time_minutes": 0,
+                    "total_distance_km": 0,
+                    "on_time_delivery_rate": 0,
+                    "average_driver_rating": 0,
+                    "total_revenue": 0,
+                    "deliveries_by_vehicle": {},
+                    "peak_hours": []
+                }
+            }
     
     def estimate_delivery_time(self, distance_km: float, order_size: OrderSize) -> datetime:
         processing_time = {OrderSize.SMALL: 10, OrderSize.MEDIUM: 15, 

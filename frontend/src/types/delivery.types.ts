@@ -1,3 +1,5 @@
+// delivery.types.ts
+
 export enum OrderSize {
   SMALL = 'small',
   MEDIUM = 'medium',
@@ -28,6 +30,12 @@ export enum DriverStatus {
   ONLINE = 'online',
   BUSY = 'busy',
   ON_BREAK = 'on_break'
+}
+
+// Add the missing DeliveryType enum
+export enum DeliveryType {
+  HOTEL = 'hotel',
+  CUSTOMER = 'customer'
 }
 
 export interface HotelInfo {
@@ -90,6 +98,7 @@ export interface DeliveryOrder {
   created_at?: string;
   updated_at?: string;
   tracking_history?: TrackingEvent[];
+  delivery_type?: DeliveryType; // Now using the enum instead of string literal
   delivery_notes?: string;
   signature_required?: boolean;
   proof_of_delivery?: string;

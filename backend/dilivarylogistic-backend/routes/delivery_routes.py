@@ -1,14 +1,25 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Body
 from services.delivery_service import DeliveryService
 from services.vehicle_service import VehicleAssignmentService
 from models.delivery import DeliveryOrder, DeliveryUpdate, OrderSize
 from typing import Optional
 import uuid
-from datetime import datetime, timedelta  # Added timedelta
+import logging
+from datetime import datetime, timedelta
 from firebase_admin import firestore
+from pydantic import BaseModel
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/delivery", tags=["delivery"])
 delivery_service = DeliveryService()
+
+# Define request models for location updates
+class LocationUpdateRequest(BaseModel):
+    order_id: str
+    latitude: float
+    longitude: float
 
 @router.post("/orders")
 async def create_delivery_order(order: DeliveryOrder):
@@ -135,28 +146,65 @@ async def calculate_delivery_estimate(order: DeliveryOrder):
         print(f"Error in calculate: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     
-# Single version of calculate-detailed endpoint
+# Updated calculate-detailed endpoint with driver location support
 @router.post("/orders/calculate-detailed")
-async def calculate_detailed_estimate(order: DeliveryOrder):
-    """Calculate detailed delivery estimate with breakdown"""
+async def calculate_detailed_estimate(
+    request: dict  # Accept raw JSON to handle extra fields
+):
+    """Calculate detailed delivery estimate from driver location to destination"""
     try:
-        # Check if coordinates are provided
-        if not order.hotel_info.latitude or not order.hotel_info.longitude:
+        # Extract driver location and destination type from request
+        driver_latitude = request.get('driver_location', {}).get('latitude')
+        driver_longitude = request.get('driver_location', {}).get('longitude')
+        destination_type = request.get('destination_type')
+        
+        # Parse the order data
+        order = DeliveryOrder(**request)
+        
+        # Determine start point (driver location)
+        if driver_latitude is None or driver_longitude is None:
             return {
                 "success": False,
-                "message": "Hotel coordinates are required for calculation"
+                "message": "Driver location coordinates are required for calculation"
             }
         
-        if not order.customer_info.latitude or not order.customer_info.longitude:
-            return {
-                "success": False,
-                "message": "Customer coordinates are required for calculation"
-            }
+        start_lat = driver_latitude
+        start_lng = driver_longitude
+        
+        # Determine end point based on destination type
+        if destination_type == "hotel":
+            if not order.hotel_info.latitude or not order.hotel_info.longitude:
+                return {
+                    "success": False,
+                    "message": "Hotel coordinates are required for calculation"
+                }
+            end_lat = order.hotel_info.latitude
+            end_lng = order.hotel_info.longitude
+            calculation_type = "driver_to_hotel"
+        elif destination_type == "customer":
+            if not order.customer_info.latitude or not order.customer_info.longitude:
+                return {
+                    "success": False,
+                    "message": "Customer coordinates are required for calculation"
+                }
+            end_lat = order.customer_info.latitude
+            end_lng = order.customer_info.longitude
+            calculation_type = "driver_to_customer"
+        else:
+            # Default to hotel if no destination type specified
+            if not order.hotel_info.latitude or not order.hotel_info.longitude:
+                return {
+                    "success": False,
+                    "message": "Hotel coordinates are required for calculation"
+                }
+            end_lat = order.hotel_info.latitude
+            end_lng = order.hotel_info.longitude
+            calculation_type = "driver_to_hotel"
         
         # Calculate distance
         distance = delivery_service.calculate_distance(
-            order.hotel_info.latitude, order.hotel_info.longitude,
-            order.customer_info.latitude, order.customer_info.longitude
+            start_lat, start_lng,
+            end_lat, end_lng
         )
         
         # Get vehicle requirements
@@ -171,7 +219,7 @@ async def calculate_detailed_estimate(order: DeliveryOrder):
         }
         processing_time = processing_times.get(order.order_size, 15)
         
-        # Calculate travel time (average speed 30 km/h)
+        # Calculate travel time based on distance (average speed 30 km/h)
         travel_time = (distance / 30) * 60
         
         # Determine if it's peak hour
@@ -183,7 +231,7 @@ async def calculate_detailed_estimate(order: DeliveryOrder):
         
         # Traffic and weather multipliers
         traffic_multiplier = 1.2 if is_peak_hour else 1.0
-        weather_multiplier = 1.0  # Could be dynamic based on weather API
+        weather_multiplier = 1.0
         
         # Apply multipliers
         adjusted_travel_time = travel_time * traffic_multiplier * weather_multiplier
@@ -210,12 +258,113 @@ async def calculate_detailed_estimate(order: DeliveryOrder):
             "success": True,
             "data": {
                 "distance_km": round(distance, 2),
-                "recommended_vehicle": vehicle_req.recommended_vehicle if vehicle_req else None,
+                "recommended_vehicle": vehicle_req.recommended_vehicle.value if vehicle_req else None,
                 "estimated_delivery_time": estimated_delivery_time.isoformat(),
                 "estimated_minutes": int(total_minutes),
-                "breakdown": breakdown
+                "breakdown": breakdown,
+                "calculation_type": calculation_type
             }
         }
     except Exception as e:
         print(f"Error in calculate detailed estimate: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
+
+# ==================== LOCATION MANAGEMENT ====================
+
+@router.post("/location/update")
+async def update_driver_location(request: LocationUpdateRequest):
+    """Update driver's current location for a delivery order"""
+    try:
+        result = await delivery_service.update_driver_location(
+            request.order_id, 
+            request.latitude, 
+            request.longitude
+        )
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result["message"])
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating driver location: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/location/{order_id}")
+async def get_driver_location(order_id: str):
+    """Get driver's current location for a delivery order"""
+    try:
+        result = await delivery_service.get_driver_location(order_id)
+        if not result["success"]:
+            raise HTTPException(status_code=404, detail=result["message"])
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting driver location: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/location/calculate-distance/{order_id}")
+async def calculate_distance_from_driver(order_id: str):
+    """Calculate and update distance from driver location to destination"""
+    try:
+        result = await delivery_service.calculate_distance_from_driver(order_id)
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result["message"])
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error calculating distance: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==================== DEBUG ENDPOINTS ====================
+
+@router.get("/debug/locations")
+async def debug_get_all_locations():
+    """Debug endpoint to get all stored locations"""
+    try:
+        locations = []
+        # Get all documents from location collection
+        docs = await delivery_service.db.collection(delivery_service.location_collection).get()
+        for doc in docs:
+            locations.append(doc.to_dict())
+        return {"success": True, "data": locations}
+    except Exception as e:
+        logger.error(f"Error getting locations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/debug/deliveries")
+async def debug_get_all_deliveries():
+    """Debug endpoint to get all deliveries"""
+    try:
+        return {"success": True, "data": list(delivery_service.deliveries_cache.values())}
+    except Exception as e:
+        logger.error(f"Error getting deliveries: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/health/details")
+async def health_check_details():
+    """Detailed health check endpoint"""
+    try:
+        locations_count = 0
+        try:
+            docs = await delivery_service.db.collection(delivery_service.location_collection).get()
+            locations_count = len(docs)
+        except:
+            pass
+            
+        return {
+            "success": True,
+            "status": "healthy",
+            "deliveries_count": len(delivery_service.deliveries_cache),
+            "locations_count": locations_count
+        }
+    except Exception as e:
+        logger.error(f"Health check error: {e}")
+        return {
+            "success": False,
+            "status": "unhealthy",
+            "error": str(e)
+        }

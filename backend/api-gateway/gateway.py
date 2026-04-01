@@ -2,7 +2,7 @@ import logging
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import httpx
+import httpx 
 import os
 from dotenv import load_dotenv
 
